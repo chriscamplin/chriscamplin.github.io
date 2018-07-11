@@ -1,0 +1,122 @@
+.App {
+  text-align: center;
+  height: 100%; }
+
+header > a {
+  position: absolute;
+  right: 2rem;
+  top: 1.25rem;
+  width: 30px;
+}
+
+header > a  > img {
+  width: 100%;
+}
+
+main {
+  height: 100%; }
+
+.App-logo {
+  animation: App-logo-spin infinite 20s linear;
+  height: 80px; }
+
+.App-header {
+  background-color: #222;
+  padding: 1rem;
+  color: white; }
+
+.App-title {
+  font-size: 1.5em;
+  text-align: left;
+  padding-left: 5rem; 
+  margin: 0;
+}
+
+.App-intro {
+  font-size: large; }
+
+.grid-row {
+  display: flex;
+  height: calc(50vh - 34px); }
+
+.grid-row > div {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  width: 50%; }
+  .grid-row > div:first-child {
+    align-items: center;
+    background-color: transparent;
+    display: flex;
+    justify-content: center;
+    transition: background-color 0.5s ease-in, color 0.5s ease-in; }
+    .grid-row > div:first-child:hover {
+      background-color: #04DEAD;
+      color: #fff; }
+
+.grid-row > div span > img {
+  height: 94%;
+  min-width: 100%;
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+
+}
+
+@media (max-width: 576px) {
+
+  .grid-row > div .LazyLoad > div > span > img {
+
+    transform: translateX(-50%); 
+    position: absolute;
+    left: 50%;
+    width: auto;
+  }
+
+  .grid-row > div .LazyLoad.modal-mode > div  span > img {
+    opacity: 0;
+  }
+}
+
+
+.LazyLoad {
+  opacity: 0;
+  transition: opacity 0.75s ease-in, transform 0.25s ease-in;
+  transform: translateY(100%); }
+  .LazyLoad.is-visible {
+    opacity: 1;
+    transform: translateY(0); 
+  }
+  .LazyLoad.is-visible.modal-mode {
+    transition: none;
+    transform: none;
+  }
+
+.backdrop {
+  position: fixed;
+  top: 0px;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  background-color: rgba(0, 0, 0, 0.75);
+  padding: 130px 50px 50px;
+  display: flex;
+  z-index: 10000; }
+
+.modal {
+  background-color: white;
+  height: calc(100vh - 160px);
+  min-height: 300px;
+  margin: 0px auto;
+  padding: 30px;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  align-content: center;
+  width: calc(100vw - 190px);
+  justify-content: center; }
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg); }
+  to {
+    transform: rotate(360deg); } }
