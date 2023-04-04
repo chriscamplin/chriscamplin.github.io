@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002F","\u002Fclimate-spiral","\u002Fseaice-spiral","\u002Ftext"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()
