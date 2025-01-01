@@ -21,12 +21,10 @@ import { RaymarchingPlaneTriangles } from './components/RaymarchingPlaneTriangle
 import { Particles } from './components/Particles'
 import { WarpedPlane } from './components/WarpedPlane'
 import { VideoPlane } from './components/VideoPlane'
-// import { Bloom, DepthOfField, EffectComposer } from '@react-three/postprocessing'
+
 import CircularText from './components/CircularText'
 import { siteData } from './data/siteData'
-import useTrackerMotionValue from "./hooks/useTrackerMotionValue"
-
-
+import useTrackerMotionValue from './hooks/useTrackerMotionValue'
 
 function Header() {
   return (
@@ -48,7 +46,6 @@ function Header() {
       </a>
     </header>
   )
-
 }
 
 function Main() {
@@ -79,7 +76,7 @@ function Main() {
         <directionalLight position={[0, 5, 5]} intensity={0.5} />
       </GlobalCanvas>
       <HorizontalMarquee>| Projects</HorizontalMarquee>
-      <CircularText>| Keep Scrolling... |</CircularText>
+      <CircularText> Keep Scrolling... </CircularText>
       <SmoothScrollbar>
         {(bind) => (
           <>
@@ -103,19 +100,31 @@ function Main() {
               <VideoPlaneSection />
             </section>
             <section>
-              <VideoPlaneSection vidSrc='/video/CogVideoX_1_5_I2V_00029.mp4' />
+              <VideoPlaneSection
+                vidSrc='/video/CogVideoX_1_5_I2V_00029.mp4'
+                vidSrc2='/video/CogVideoX_1_5_I2V_00038.mp4'
+              />
             </section>
             <section>
               <RayMarchBlobsSection />
             </section>
             <section>
-              <VideoPlaneSection vidSrc='/video/CogVideoX_1_5_I2V_00030.mp4' />
+              <VideoPlaneSection
+                vidSrc='/video/CogVideoX_1_5_I2V_00030.mp4'
+                vidSrc2='/video/CogVideoX_1_5_I2V_00030.mp4'
+              />
             </section>
             <section>
-              <VideoPlaneSection vidSrc='/video/CogVideoX_1_5_I2V_00043.mp4' />
+              <VideoPlaneSection
+                vidSrc='/video/CogVideoX_1_5_I2V_00043.mp4'
+                vidSrc2='/video/CogVideoX_1_5_I2V_00043.mp4'
+              />
             </section>
             <section>
-              <VideoPlaneSection vidSrc='/video/CogVideoX_1_5_I2V_00036.mp4' />
+              <VideoPlaneSection
+                vidSrc='/video/CogVideoX_1_5_I2V_00036.mp4'
+                vidSrc2='/video/CogVideoX_1_5_I2V_00036.mp4'
+              />
             </section>
             <section style={{ marginBottom: '0' }}>
               <RayMarchTrianglesSection />
@@ -156,14 +165,13 @@ function HorizontalMarquee({ children }: { children: React.ReactNode }) {
   const x = useTransform(progress, [0, 1], ['0vw', '-35vw'])
 
   return (
-    <div ref={el} style={{ position: 'absolute', top: "40vw", left: "20vw" }}>
+    <div ref={el} style={{ position: 'absolute', top: '40vw', left: '20vw' }}>
       <motion.div style={{ x }}>
         <h1>{children}</h1>
       </motion.div>
     </div>
   )
 }
-
 
 function Image(
   { name, imgPath, url } = { name: '', imgPath: '', url: '' } // Default values
@@ -198,7 +206,8 @@ function Image(
 }
 
 function VideoPlaneSection({
-  vidSrc = '/video/CogVideoX_1_5_I2V_00040.mov'
+  vidSrc = '/video/CogVideoX_1_5_I2V_00040.mp4',
+  vidSrc2 = '/video/CogVideoX_1_5_I2V_00030.mp4',
 }) {
   const el = React.useRef<HTMLDivElement>(null)
 
@@ -211,7 +220,8 @@ function VideoPlaneSection({
         className='Placeholder ScrollScene'
         onClick={() => console.log(`animate to modal view`)}
       >
-        <video src={vidSrc} autoPlay muted loop playsInline></video>
+        <video id='vid1' src={vidSrc} autoPlay muted loop playsInline></video>
+        <video id='vid2' src={vidSrc2} autoPlay muted loop playsInline></video>
         <div className='VerticalText'>Generative video - ComfyUI</div>
       </div>
       <UseCanvas>
@@ -256,7 +266,7 @@ function ParticlesSection() {
 
 function RayMarchBlobsSection() {
   const el = React.useRef<HTMLDivElement>(null)
-  console.log({ RaymarchingPlane })
+
   return (
     <>
       <div ref={el} className='Placeholder ScrollScene FragShader'></div>
@@ -270,7 +280,7 @@ function RayMarchBlobsSection() {
 
 function RayMarchLinksSection() {
   const el = React.useRef<HTMLDivElement>(null)
-  console.log({ RaymarchingPlaneLinks })
+
   return (
     <>
       <div ref={el} className='Placeholder ScrollScene FragShader'></div>
@@ -285,7 +295,7 @@ function RayMarchLinksSection() {
 }
 function RayMarchTrianglesSection() {
   const el = React.useRef<HTMLDivElement>(null)
-  console.log({ RaymarchingPlaneLinks })
+
   return (
     <>
       <div ref={el} className='Placeholder ScrollScene FragShader'></div>
@@ -298,8 +308,6 @@ function RayMarchTrianglesSection() {
     </>
   )
 }
-
-
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

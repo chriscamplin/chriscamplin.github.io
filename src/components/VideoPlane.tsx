@@ -1,92 +1,202 @@
 import React, { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+//@ts-ignore
+import vertexShader from '../shaders/videoGoo/vertex.glsl'
+//@ts-ignore
+import fragmentShader from '../shaders/videoGoo/fragment.glsl'
 
-// Custom shader material to handle video texture
 interface VideoPlaneProps {
-  track: React.RefObject<HTMLDivElement>;
-  [key: string]: any;
+  track: React.RefObject<HTMLDivElement>
+  [key: string]: any
+}
+
+const rotateMatrix = (a: number) => [Math.cos(a), -Math.sin(a), Math.sin(a), Math.cos(a)]
+
+const multiplyMatrixAndPoint = (matrix: number[], point: number[]) => {
+  const c0r0 = matrix[0]
+  const c1r0 = matrix[1]
+  const c0r1 = matrix[2]
+  const c1r1 = matrix[3]
+  const x = point[0]
+  const y = point[1]
+  return [Math.abs(x * c0r0 + y * c0r1), Math.abs(x * c1r0 + y * c1r1)]
+}
+
+export const getRatio = (
+  { x: w, y: h }: { x: number; y: number },
+  { width, height }: { width: number; height: number },
+  r = 0
+) => {
+  const m = multiplyMatrixAndPoint(rotateMatrix(THREE.MathUtils.degToRad(r)), [w, h])
+  const originalRatio = {
+    w: m[0] / width,
+    h: m[1] / height,
+  }
+
+  const coverRatio = 1 / Math.max(originalRatio.w, originalRatio.h)
+
+  return new THREE.Vector2(originalRatio.w * coverRatio, originalRatio.h * coverRatio)
 }
 
 export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
   const planeRef = useRef<THREE.Mesh>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null)
+  const hoverTextureRef = useRef<THREE.VideoTexture | null>(null)
 
-  // Load video and create a texture
+  const uniforms = useRef({
+    uVideoTexture: { value: null as THREE.VideoTexture | null },
+    uHovermap: { value: null as THREE.VideoTexture | null },
+    uAlpha: { value: 1.0 },
+    uTime: { value: 0.0 },
+    uProgressHover: { value: 0.0 },
+    uProgressClick: { value: 0.0 },
+    uRes: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    uMouse: { value: new THREE.Vector2(0, 0) },
+    uRatio: { value: new THREE.Vector2(1, 1) },
+    uHoverratio: { value: new THREE.Vector2(1, 1) },
+    uVelocity: { value: 0.0 },
+  })
+
+  const [isHovered, setIsHovered] = React.useState(false)
+  const targetProgressClick = useRef(0)
+
+  // Video Texture Initialization
   useEffect(() => {
     if (!track || !track.current) return
 
-    const video = track.current.querySelector('video') as HTMLVideoElement
-    if (!video) {
-      console.error('No video element found in track reference.')
+    const video1 = track.current.querySelector('#vid1') as HTMLVideoElement
+    const video2 = track.current.querySelector('#vid2') as HTMLVideoElement
+    if (!video1 || !video2) {
+      console.error('No video elements found.')
       return
     }
 
-    video.crossOrigin = 'Anonymous'
-    video.loop = true
-    video.muted = true
-    video.autoplay = true
-    video.playsInline = true
+    video1.crossOrigin = 'Anonymous'
+    video1.loop = true
+    video1.muted = true
+    video1.autoplay = true
+    video1.playsInline = true
+    video1.play()
 
-    video.play()
+    video2.crossOrigin = 'Anonymous'
+    video2.loop = true
+    video2.muted = true
+    video2.autoplay = true
+    video2.playsInline = true
+    video2.play()
 
-    // Create a texture from the video
-    const texture = new THREE.VideoTexture(video)
-    texture.minFilter = THREE.LinearFilter
-    texture.magFilter = THREE.LinearFilter
-    texture.format = THREE.RGBAFormat
-    texture.needsUpdate = true
+    const texture1 = new THREE.VideoTexture(video1)
+    const texture2 = new THREE.VideoTexture(video2)
+    texture1.minFilter = THREE.LinearFilter
+    texture1.magFilter = THREE.LinearFilter
+    texture1.format = THREE.RGBAFormat
 
-    videoRef.current = video
-    videoTextureRef.current = texture
+    videoTextureRef.current = texture1
+    hoverTextureRef.current = texture2
 
-    // Assign texture to shader material's uniform
-    if (planeRef.current && planeRef.current.material) {
-      const material = planeRef.current.material as THREE.ShaderMaterial
-      material.uniforms.uVideoTexture.value = texture
-    }
+    uniforms.current.uVideoTexture.value = texture1
+    uniforms.current.uHovermap.value = texture2
 
     return () => {
-      video.pause()
-      texture.dispose()
+      video1.pause()
+      video2.pause()
+      texture1.dispose()
+      texture2.dispose()
     }
   }, [track])
-  const [velocity, setVelocity] = React.useState(0) // Track scroll velocity
-  const lastScrollY = useRef(window.scrollY)
 
-  // Calculate scroll velocity
+  // Mouse Tracking
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY
-      const delta = scrollY - lastScrollY.current
-      lastScrollY.current = scrollY
+    const mouse = new THREE.Vector2(0, 0) // Current interpolated mouse position
+    const targetMouse = new THREE.Vector2(0, 0) // Target mouse position in pixels
 
-      setVelocity(delta * 0.01) // Scale the velocity for the shader
+    const lerp = (start: number, end: number, alpha: number) =>
+      start + (end - start) * alpha
+
+    const handleMouseMove = (event: MouseEvent) => {
+      // Capture the exact mouse position in pixel coordinates
+      targetMouse.x = event.clientX
+      targetMouse.y = event.clientY
     }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    const updateMousePosition = () => {
+      // Smoothly interpolate towards the target mouse position
+      mouse.x = lerp(mouse.x, targetMouse.x, 0.1) // Adjust alpha for smoothness
+      mouse.y = lerp(mouse.y, targetMouse.y, 0.1)
+
+      // Update the uniform with pixel coordinates
+      uniforms.current.uMouse.value.set(mouse.x, mouse.y)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+
+    // Create a loop to continuously update the mouse position
+    const interval = setInterval(updateMousePosition, 16) // ~60FPS
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      clearInterval(interval)
+    }
   }, [])
 
-  useFrame(() => {
-    // Ensure the video texture updates each frame
+  // Handle Resizing
+  useEffect(() => {
+    const handleResize = () => {
+      uniforms.current.uRes.value.set(window.innerWidth, window.innerHeight)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Hover and Click Effects
+  useEffect(() => {
+    if (!track || !track.current) return
+
+    const handlePointerOver = () => setIsHovered(true)
+    const handlePointerOut = () => setIsHovered(false)
+    const handlePointerDown = () => (targetProgressClick.current = 1.0)
+    const handlePointerUp = () => (targetProgressClick.current = 0.0)
+
+    const trackElement = track.current
+    trackElement.addEventListener('pointerover', handlePointerOver)
+    trackElement.addEventListener('pointerout', handlePointerOut)
+    trackElement.addEventListener('pointerdown', handlePointerDown)
+    trackElement.addEventListener('pointerup', handlePointerUp)
+
+    return () => {
+      trackElement.removeEventListener('pointerover', handlePointerOver)
+      trackElement.removeEventListener('pointerout', handlePointerOut)
+      trackElement.removeEventListener('pointerdown', handlePointerDown)
+      trackElement.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [track])
+
+  // Animate in Frame Loop
+  useFrame((state, delta) => {
+    // Lerp progress values
+    uniforms.current.uProgressClick.value = THREE.MathUtils.lerp(
+      uniforms.current.uProgressClick.value,
+      targetProgressClick.current,
+      0.1
+    )
+
+    uniforms.current.uProgressHover.value = THREE.MathUtils.lerp(
+      uniforms.current.uProgressHover.value,
+      isHovered ? 1.0 : 0.0,
+      0.1
+    )
+
+    // Increment time uniform
+    uniforms.current.uTime.value += delta
+
+    // Ensure video textures update
     if (videoTextureRef.current) {
       videoTextureRef.current.needsUpdate = true
     }
-    // Update shader's velocity uniform
-    if (planeRef.current?.material) {
-      const material = planeRef.current.material as THREE.ShaderMaterial
-      material.uniforms.uVelocity.value = velocity
-      material.uniforms.uTime.value += 0.01
+    if (hoverTextureRef.current) {
+      hoverTextureRef.current.needsUpdate = true
     }
-  })
-
-  // Shader uniforms
-  const uniforms = useRef({
-    uVideoTexture: { value: null },
-    uVelocity: { value: 0 },
-    uTime: { value: 0 },
   })
 
   return (
@@ -96,37 +206,8 @@ export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
         uniforms={uniforms.current}
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}
+        defines={{ PI: Math.PI, PR: window.devicePixelRatio.toFixed(1) }}
       />
     </mesh>
   )
 }
-
-// Vertex Shader with Warp
-const vertexShader = `
-  varying vec2 vUv;
-  uniform float uTime;
-  uniform float uVelocity;
-
-  void main() {
-    vUv = uv;
-
-    // Warp effect: add sine wave based on velocity
-    vec3 warpedPosition = position;
-    float warpFactor = uVelocity * sin(position.x * 1.666 + uTime * 2.0);
-    warpedPosition.y += warpFactor;
-    warpedPosition.z += warpFactor;
-
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(warpedPosition, 1.0);
-  }
-`
-
-// Fragment Shader
-const fragmentShader = `
-  uniform sampler2D uVideoTexture;
-  varying vec2 vUv;
-
-  void main() {
-    vec4 color = texture2D(uVideoTexture, vUv);
-    gl_FragColor = color;
-  }
-`

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useScrollbar } from '@14islands/r3f-scroll-rig'
 /* @ts-ignore */
 import generateFboPoints from '../helpers/generateFboPoints'
+import { Depth, DepthOfField, EffectComposer } from '@react-three/postprocessing'
 
 export function Particles() {
   const mesh = React.useRef<THREE.Points>(null)
@@ -16,7 +17,7 @@ export function Particles() {
   useEffect(() => {
     async function getPoints() {
       const { particles, gpgpu } = await generateFboPoints(gl)
-      console.log({ particles })
+
       setParticlesData(particles)
       setGpgpuData(gpgpu)
     }
@@ -29,21 +30,22 @@ export function Particles() {
 
   useFrame(({ clock }, delta) => {
     if (!gpgpuData) return
+
     // GPGPU Update
     gpgpuData.particlesVariable.material.uniforms.uTime.value = clock.elapsedTime
     gpgpuData.particlesVariable.material.uniforms.uDeltaTime.value = delta
     gpgpuData.particlesVariable.material.uniforms.uFlowFieldStrength.value =
       scroll.velocity * 3
+    gpgpuData.particlesVariable.material.uniforms.uScroll.value = scroll.progress
     gpgpuData.computation.compute()
     if (!particlesData?.points?.material?.uniforms?.uParticlesTexture) return
     particlesData.points.material.uniforms.uParticlesTexture.value =
       gpgpuData.computation.getCurrentRenderTarget(gpgpuData.particlesVariable).texture
 
-        gpgpuData.particlesVariable.material.uniforms.uMouse.value.set(
-          mousePosition.current.x,
-          mousePosition.current.y
-        )
-
+    gpgpuData.particlesVariable.material.uniforms.uMouse.value.set(
+      mousePosition.current.x,
+      mousePosition.current.y
+    )
   })
   React.useEffect(() => {
     if (!light.current) return
@@ -57,18 +59,16 @@ export function Particles() {
     }
   }, [light.current])
 
+  // Mouse event listener for manual mouse data capture
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      mousePosition.current.x = event.clientX / window.innerWidth
+      mousePosition.current.y = 1.0 - event.clientY / window.innerHeight
+    }
 
-    // Mouse event listener for manual mouse data capture
-    useEffect(() => {
-      const handleMouseMove = (event: MouseEvent) => {
-        mousePosition.current.x = event.clientX / window.innerWidth
-        mousePosition.current.y = 1.0 - event.clientY / window.innerHeight
-      }
-
-      window.addEventListener('mousemove', handleMouseMove)
-      return () => window.removeEventListener('mousemove', handleMouseMove)
-    }, [])
-
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   return (
     particlesData?.points.geometry &&
@@ -95,6 +95,14 @@ export function Particles() {
             // receiveShadow
             // castShadow
           />
+          {/* <EffectComposer>
+            <DepthOfField
+              focusDistance={0}
+              focalLength={0.02}
+              bokehScale={2}
+              height={480}
+            />
+          </EffectComposer> */}
         </group>
       </>
     )

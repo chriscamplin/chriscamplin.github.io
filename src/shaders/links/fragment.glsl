@@ -183,10 +183,11 @@ float rayMarch(vec3 ro,vec3 rd,out vec3 color){
     
     for(int i=0;i<MAX_STEPS;i++){
         vec3 p=ro+dist*rd;
-        p.x+=sin(dist*.15)*2.75;// wiggle ray
-        p.y-=cos(dist*.1)*.75;// wiggle ray
+        p.x+=sin(dist*.15*uMouse.x)*2.75;// wiggle ray
+        p.y-=cos(dist*.1*uMouse.y)*.75;// wiggle ray
         p.xy*=rot2D(PI*(dist*.025)+uTime*.25);
-        p.xy*=uMouse.xy*uScroll;
+        //p.xz*=uMouse.xy+uScroll;
+        p.yz*=uMouse.xy+uScroll;
 
         float d=sceneSDF(p,color);
         if(d<SURF_DIST){
@@ -217,10 +218,12 @@ void main(){
     if(d<MAX_DIST){
         // Compute position of hit
         vec3 p=ro+d*rd;
-        p.x+=sin(d*.15)*2.75;// wiggle ray
-        p.y-=cos(d*.1)*.75;// wiggle ray
+        p.x+=sin(d*.15*uMouse.x)*2.75;// wiggle ray
+        p.y-=cos(d*.1*uMouse.y)*.75;// wiggle ray
         p.xy*=rot2D(PI*(d*.025)+uTime*.25);
-        p.xy*=uMouse.xy*uScroll;
+        //p.xz*=uMouse.xy+uScroll;
+        p.yz*=uMouse.xy+uScroll;
+
         // PBR material parameters
         objColor=palette(p.z*.0665);//*vec3(.7+abs(cos(uTime*.1)), .5+(abs(sin(p.y+uTime))*.666), 0.97);
         

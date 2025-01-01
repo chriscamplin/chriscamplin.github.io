@@ -5,7 +5,7 @@ uniform float uFlowFieldInfluence;
 uniform float uFlowFieldStrength;
 uniform float uFlowFieldFrequency;
 uniform vec2 uMouse;
-
+uniform float uScroll;
 #include ../includes/simplexNoise4d.glsl
 
 void main()
@@ -43,8 +43,8 @@ void main()
         float mouseForce=smoothstep(0.,.5,1.-mouseDistance);// Inverse strength based on distance
 
         // Combine mouse and flow field forces
-        vec3 mousePush=vec3(normalize(mouseDirection),0.)*mouseForce*10.;
-        particle.xyz+=(flowField*uDeltaTime*strength*uFlowFieldStrength)+mousePush*uDeltaTime;
+        vec3 mousePush=vec3(normalize(mouseDirection),0.)*mouseForce*50.*(uScroll+.05);
+        particle.xyz+=(flowField*uDeltaTime*strength*uFlowFieldStrength*(uScroll+.05))+mousePush*uDeltaTime;
 
         // Decay
         particle.a += uDeltaTime * 0.3;

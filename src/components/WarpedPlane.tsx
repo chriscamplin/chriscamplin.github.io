@@ -48,7 +48,7 @@ export function WarpedPlane(props: AnimatedMeshProps) {
 
   useEffect(() => {
     if (!mesh.current) return
-    console.log({ props })
+
     if (props.track.current) {
       props.track.current?.addEventListener('pointerover', () => {
         setIsHovered(true)
@@ -57,7 +57,6 @@ export function WarpedPlane(props: AnimatedMeshProps) {
         setIsHovered(false)
       })
     }
-    // Attach custom uniforms to the mesh's userData
     // Attach custom uniforms to the mesh's userData
     mesh.current.userData.uniforms = warpUniforms
   }, [])
@@ -74,11 +73,9 @@ export function WarpedPlane(props: AnimatedMeshProps) {
     //tex.magFilter = THREE.NearestFilter
     //tex.minFilter = THREE.LinearMipMapLinearFilter
 
-
     if (!mesh || !mesh.current) return
     const MATERIAL = mesh.current.material as THREE.MeshBasicMaterial
     MATERIAL.map = tex
-    
   }, [props.track.current])
   const previousScroll = React.useRef(0) // To track the previous scroll position
   const scrollVelocity = React.useRef(0) // To track scroll velocity

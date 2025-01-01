@@ -76,7 +76,7 @@ export default async function generateFboPoints(renderer) {
     0.005
   )
   gpgpu.particlesVariable.material.uniforms.uMouse = { value: new THREE.Vector2(0, 0) }
-
+  gpgpu.particlesVariable.material.uniforms.uScroll = new THREE.Uniform(0.0)
 
   gpgpu.computation.init()
 
