@@ -185,7 +185,7 @@ float rayMarch(vec3 ro,vec3 rd,out vec3 color){
         vec3 p=ro+dist*rd;
         p.x+=sin(dist*.15*uMouse.x)*2.75;// wiggle ray
         p.y-=cos(dist*.1*uMouse.y)*.75;// wiggle ray
-        p.xy*=rot2D(PI*(dist*.025)+uTime*.25);
+        p.xy*=rot2D(PI*(dist*.025)+uTime*-.25);
         //p.xz*=uMouse.xy+uScroll;
         p.yz*=uMouse.xy+uScroll;
 

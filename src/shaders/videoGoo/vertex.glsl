@@ -7,7 +7,7 @@ void main(){
     
     // Warp effect: add sine wave based on velocity
     vec3 warpedPosition=position;
-    float warpFactor=uVelocity*sin(position.x*1.666+uTime*2.);
+    float warpFactor=uVelocity*sin(position.x+uTime*.5);
     warpedPosition.y+=warpFactor;
     warpedPosition.z+=warpFactor;
     

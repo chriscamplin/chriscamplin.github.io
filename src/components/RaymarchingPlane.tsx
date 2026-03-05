@@ -1,20 +1,11 @@
 import * as THREE from 'three'
-import { extend, useFrame, ReactThreeFiber, useThree } from '@react-three/fiber'
+import { extend, useFrame, ThreeElement, ThreeElements } from '@react-three/fiber'
 import { useRef, useEffect } from 'react'
-//@ts-ignore
-import vertexShader from '../shaders/blob/vertex.glsl'
-//@ts-ignore
-import fragmentShader from "../shaders/blob/fragment.glsl"
-// Declare raymarchingMaterial as a JSX intrinsic element
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      raymarchingMaterial: ReactThreeFiber.Object3DNode<RaymarchingMaterial, typeof RaymarchingMaterial>
-    }
-  }
-}
 
-// Extend the shader material to be usable in React Three Fiber
+import vertexShader from '../shaders/blob/vertex.glsl'
+import fragmentShader from '../shaders/blob/fragment.glsl'
+
+// 1. Define the class first
 class RaymarchingMaterial extends THREE.ShaderMaterial {
   constructor() {
     super({
@@ -29,23 +20,60 @@ class RaymarchingMaterial extends THREE.ShaderMaterial {
       fragmentShader,
     })
   }
+
+  // Add getters/setters if you want to pass these as props directly
+  // like <raymarchingMaterial uTime={1} />
+  get uTime() {
+    return this.uniforms.uTime.value
+  }
+  set uTime(v) {
+    this.uniforms.uTime.value = v
+  }
+  get uResolution() {
+    return this.uniforms.uResolution.value
+  }
+  set uResolution(v) {
+    this.uniforms.uResolution.value = v
+  }
+  get uRadius() {
+    return this.uniforms.uRadius.value
+  }
+  set uRadius(v) {
+    this.uniforms.uRadius.value = v
+  }
+  get uMouse() {
+    return this.uniforms.uMouse.value
+  }
+  set uMouse(v) {
+    this.uniforms.uMouse.value = v
+  }
 }
 
+// 2. Extend and declare the types
 extend({ RaymarchingMaterial })
 
-interface RaymarchingPlaneProps extends ReactThreeFiber.MeshProps {
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    raymarchingMaterial: ThreeElement<typeof RaymarchingMaterial>
+  }
+}
+
+// 3. Define Props interface
+interface RaymarchingPlaneProps extends Partial<ThreeElements['mesh']> {
   scrollState: {
     progress: number
   }
 }
 
-export function RaymarchingPlane(props: RaymarchingPlaneProps) {
-  const planeRef = useRef<THREE.Mesh>(null)
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
-  const previousScroll = useRef(0) // To track the previous scroll position
-  const scrollVelocity = useRef(0) // To track scroll velocity
+export function RaymarchingPlane({ scrollState, ...props }: RaymarchingPlaneProps) {
+  // Type the refs specifically
+  const planeRef = useRef<THREE.Mesh>(null!)
+  const materialRef = useRef<RaymarchingMaterial>(null!)
+
+  const previousScroll = useRef(0)
+  const scrollVelocity = useRef(0)
   const mousePosition = useRef({ x: 0.5, y: 0.5 })
-  // Mouse event listener for manual mouse data capture
+
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       mousePosition.current.x = event.clientX / window.innerWidth
@@ -56,19 +84,19 @@ export function RaymarchingPlane(props: RaymarchingPlaneProps) {
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
-  // Update the time uniform and resolution on each frame
   useFrame(({ clock, size }, delta) => {
     if (materialRef.current) {
-      const currentScroll = props.scrollState.progress // Assume scrollState.scroll gives current scroll position
+      const currentScroll = scrollState.progress
       scrollVelocity.current = (currentScroll - previousScroll.current) / delta
       previousScroll.current = currentScroll
 
+      // Uniforms are now typed correctly through the RaymarchingMaterial class
       materialRef.current.uniforms.uTime.value = clock.getElapsedTime()
       materialRef.current.uniforms.uResolution.value.set(size.width, size.height)
-      materialRef.current.uniforms.uRadius.value = props.scrollState.progress
+      materialRef.current.uniforms.uRadius.value = scrollState.progress
       materialRef.current.uniforms.uMouse.value.set(
         mousePosition.current.x,
-        mousePosition.current.y
+        mousePosition.current.y,
       )
     }
   })

@@ -1,23 +1,25 @@
 import * as THREE from 'three'
-import { extend, useFrame, ReactThreeFiber, useThree } from '@react-three/fiber'
+import {
+  extend,
+  useFrame,
+  ReactThreeFiber,
+  ThreeElement,
+  ThreeElements,
+} from '@react-three/fiber'
 import { useRef, useEffect } from 'react'
 //@ts-ignore
 import vertexShader from '../shaders/links/vertex.glsl'
 //@ts-ignore
 import fragmentShader from '../shaders/links/fragment.glsl'
-// Declare raymarchingMaterial as a JSX intrinsic element
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      raymarchingMaterialLinks: ReactThreeFiber.Object3DNode<
-        RaymarchingMaterialLinks,
-        typeof RaymarchingMaterialLinks
-      >
-    }
+
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    raymarchingMaterialLinks: ThreeElement<typeof RaymarchingMaterialLinks>
   }
 }
 
 // Extend the shader material to be usable in React Three Fiber
+
 class RaymarchingMaterialLinks extends THREE.ShaderMaterial {
   constructor() {
     super({
@@ -37,7 +39,7 @@ class RaymarchingMaterialLinks extends THREE.ShaderMaterial {
 
 extend({ RaymarchingMaterialLinks })
 
-interface RaymarchingPlaneProps extends ReactThreeFiber.MeshProps {
+interface RaymarchingPlaneProps extends Partial<ThreeElements['mesh']> {
   scrollState: {
     progress: number
   }
@@ -72,9 +74,9 @@ export function RaymarchingPlaneLinks(props: RaymarchingPlaneProps) {
       materialRef.current.uniforms.uRadius.value = props.scrollState.progress
       materialRef.current.uniforms.uMouse.value.set(
         mousePosition.current.x,
-        mousePosition.current.y
+        mousePosition.current.y,
       )
-      materialRef.current.uniforms.uScroll.value = props.scrollState.progress*.5
+      materialRef.current.uniforms.uScroll.value = props.scrollState.progress * 0.5
     }
   })
 

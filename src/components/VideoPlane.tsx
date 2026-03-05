@@ -171,6 +171,8 @@ export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
       trackElement.removeEventListener('pointerup', handlePointerUp)
     }
   }, [track])
+  const previousScroll = React.useRef(0) // To track the previous scroll position
+  const scrollVelocity = React.useRef(0) // To track scroll velocity
 
   // Animate in Frame Loop
   useFrame((state, delta) => {
@@ -189,7 +191,6 @@ export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
 
     // Increment time uniform
     uniforms.current.uTime.value += delta
-
     // Ensure video textures update
     if (videoTextureRef.current) {
       videoTextureRef.current.needsUpdate = true
@@ -197,6 +198,12 @@ export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
     if (hoverTextureRef.current) {
       hoverTextureRef.current.needsUpdate = true
     }
+
+    // Calculate scroll velocity
+    // const currentScroll = props.scrollState.progress // Assume scrollState.scroll gives current scroll position
+    // scrollVelocity.current = (currentScroll - previousScroll.current) / delta
+    // previousScroll.current = currentScroll
+    // uniforms.current.uVelocity.value = scrollVelocity.current * 0.1
   })
 
   return (

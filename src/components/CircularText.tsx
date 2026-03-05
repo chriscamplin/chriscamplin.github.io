@@ -1,14 +1,13 @@
-// components/CircularTextPath.tsx
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import styled from 'styled-components'
 
 const CircularTextWrapper = styled(motion.div)`
   position: fixed;
-  right: 3vw;
-  bottom: 3vw;
-  width: 150px;
-  height: 150px;
+  left: 0;
+  bottom: 0;
+  width: 120px;
+  height: 120px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -21,7 +20,7 @@ const SVGWrapper = styled.svg`
 `
 
 interface CircularTextProps {
-  children?: React.ReactNode;
+  children?: React.ReactNode
 }
 
 const CircularText: React.FC<CircularTextProps> = ({ children }) => {
@@ -32,14 +31,36 @@ const CircularText: React.FC<CircularTextProps> = ({ children }) => {
 
   // Animate the component out of the viewport when reaching the bottom
   const translateY = useTransform(scrollYProgress, [0.9, 1], [0, 200]) // Move out vertically
-  const opacity = useTransform(scrollYProgress, [0.9, 1], [1, 0]) // Fade out
+
+  const [isIdle, setIsIdle] = useState(false)
+
+  useEffect(() => {
+    let timeout: number
+
+    const handleScroll = () => {
+      setIsIdle(false)
+      clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        setIsIdle(true)
+      }, 4000) // 4 seconds idle time
+    }
+
+    document.addEventListener('scroll', handleScroll)
+
+    return () => {
+      document.removeEventListener('scroll', handleScroll)
+      clearTimeout(timeout)
+    }
+  }, [])
 
   return (
     <CircularTextWrapper
-      style={{
-        translateY,
-        opacity,
+      initial={{ opacity: 0 }}
+      animate={{
+        opacity: isIdle ? 1 : 0,
+        translateY: isIdle ? translateY.get() : 200,
       }}
+      transition={{ duration: 0.5 }}
     >
       <SVGWrapper viewBox='0 0 150 150'>
         {/* Define a circular path */}

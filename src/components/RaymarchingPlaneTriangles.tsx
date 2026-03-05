@@ -1,20 +1,20 @@
 import * as THREE from 'three'
-import { extend, useFrame, ReactThreeFiber, useThree } from '@react-three/fiber'
+import { extend, useFrame, ThreeElement, ThreeElements } from '@react-three/fiber'
 import { useRef, useEffect } from 'react'
 //@ts-ignore
 import vertexShader from '../shaders/triangles/vertex.glsl'
 //@ts-ignore
 import fragmentShader from '../shaders/triangles/fragment.glsl'
 
-// Declare raymarchingMaterial as a JSX intrinsic element
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      raymarchingMaterialTriangles: ReactThreeFiber.Object3DNode<
-        RaymarchingMaterialTriangles,
-        typeof RaymarchingMaterialTriangles
-      >
-    }
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    raymarchingMaterialTriangles: ThreeElement<typeof RaymarchingMaterialTriangles>
+  }
+}
+
+interface RaymarchingPlaneProps extends Partial<ThreeElements['mesh']> {
+  scrollState: {
+    progress: number
   }
 }
 
@@ -23,11 +23,13 @@ class RaymarchingMaterialTriangles extends THREE.ShaderMaterial {
   constructor() {
     super({
       uniforms: {
-        uTime: { value: 0 },
-        uScroll: { value: 0 },
-        uResolution: { value: new THREE.Vector2() },
+        uTime: { value: 1 },
+        uScroll: { value: 1 },
+        uResolution: {
+          value: new THREE.Vector2(window.innerWidth * 2, window.innerHeight * 2),
+        },
         uRadius: { value: 1.25 },
-        uMouse: { value: new THREE.Vector2() },
+        uMouse: { value: new THREE.Vector2(0.5, 0.5) },
         uLightPos: { value: new THREE.Vector3(15.0, 15.0, 15.0) },
       },
       vertexShader,
@@ -38,7 +40,7 @@ class RaymarchingMaterialTriangles extends THREE.ShaderMaterial {
 
 extend({ RaymarchingMaterialTriangles })
 
-interface RaymarchingPlaneProps extends ReactThreeFiber.MeshProps {
+interface RaymarchingPlaneProps extends Partial<ThreeElements['mesh']> {
   scrollState: {
     progress: number
   }
@@ -49,7 +51,7 @@ export function RaymarchingPlaneTriangles(props: RaymarchingPlaneProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
   const previousScroll = useRef(0) // To track the previous scroll position
   const scrollVelocity = useRef(0) // To track scroll velocity
-  const mousePosition = useRef({ x: 0.5, y: 0.5 })
+  const mousePosition = useRef({ x: -0.05, y: 0.05 })
   // Mouse event listener for manual mouse data capture
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -69,15 +71,21 @@ export function RaymarchingPlaneTriangles(props: RaymarchingPlaneProps) {
       previousScroll.current = currentScroll
 
       materialRef.current.uniforms.uTime.value = clock.getElapsedTime()
-      materialRef.current.uniforms.uResolution.value.set(size.width*2., size.height*2.)
+      materialRef.current.uniforms.uResolution.value.set(size.width * 2, size.height * 2)
       materialRef.current.uniforms.uRadius.value = props.scrollState.progress
       materialRef.current.uniforms.uMouse.value.set(
         mousePosition.current.x,
-        mousePosition.current.y
+        mousePosition.current.y,
       )
-      materialRef.current.uniforms.uScroll.value = props.scrollState.progress*.5
+      materialRef.current.uniforms.uScroll.value = 1.25 + props.scrollState.progress * 0.5 //props.scrollState.progress * 0.5
     }
   })
+
+  // useFrame(() => {
+  //   if (!materialRef.current) return
+  //   console.log(materialRef.current.uniforms.uMouse.value)
+  //   console.log(mousePosition.current)
+  // })
 
   return (
     <mesh ref={planeRef} {...props}>

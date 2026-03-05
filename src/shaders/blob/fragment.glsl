@@ -1,14 +1,22 @@
 #define PI 3.14159265359
+#define MAX_STEPS 100
+#define SURF_DIST .001
+#define MAX_DIST 50.
+
 uniform float uTime;
 uniform float uRadius;
 uniform vec2 uResolution;
 uniform vec2 uMouse;
-varying vec2 vUv;
 uniform vec3 uLightPos;
+varying vec2 vUv;
 
-// Custom gradient
+// Globals to store precomputed scene values per-pixel
+// This prevents evaluating sin/cos 100+ times per pixel inside the raymarch loop!
+vec3 gPos[5];
+float gSizes[5];
+
 vec3 palette(float t){
-    return .5+.5*cos((PI*2.)*(t+vec3(.4,1.2,.8)));
+    return.5+.5*cos((PI*2.)*(t+vec3(.4,1.2,.8)));
 }
 
 float sphereSDF(vec3 p,float r){
@@ -20,96 +28,108 @@ float smin(float a,float b,float k){
     return mix(b,a,h)-k*h*(1.-h);
 }
 
-vec3 repeat(vec3 p,vec3 c){
-    return mod(p+.5*c,c)-.5*c;
+// Compute dynamic sphere attributes ONCE per pixel
+void initScene(){
+    float r=uRadius+1.;
+    vec3 m=vec3(uMouse-.5,0.)*20.;
+    
+    gPos[0]=vec3(sin(uTime*.5)*1.5,-cos(uTime*.6)*.5,0.)+m*.2;
+    gPos[1]=vec3(1.5+sin(uTime*.8),-1.5+cos(uTime*.4),-1.)-m*.2;
+    gPos[2]=vec3(-1.+sin(uTime*.7)*1.5,-.5+cos(uTime*.9)*.5,1.)+m*.4;
+    gPos[3]=vec3(.5+cos(uTime*.3)*1.5,-1.5+sin(uTime*.5)*.5,-.5)-m*.6;
+    gPos[4]=vec3(-1.5+cos(uTime*.2),-1.+sin(uTime*.6),.5)+m*.06;
+    
+    gSizes[0]=1.*r;
+    gSizes[1]=.8*r;
+    gSizes[2]=1.2*r;
+    gSizes[3]=.9*r;
+    gSizes[4]=1.1*r;
 }
 
 float sceneSDF(vec3 p){
-    float r=uRadius+1.;
-    
-    vec3 spherePositions[5];
-    spherePositions[0]=vec3(sin(uTime*.5)*1.5,-cos(uTime*.6)*.5,0.);
-    spherePositions[1]=vec3(1.5+sin(uTime*.8),-1.5+cos(uTime*.4),-1.);
-    spherePositions[2]=vec3(-1.+sin(uTime*.7)*1.5,-.5+cos(uTime*.9)*.5,1.);
-    spherePositions[3]=vec3(.5+cos(uTime*.3)*1.5,-1.5+sin(uTime*.5)*.5,-.5);
-    spherePositions[4]=vec3(-1.5+cos(uTime*.2),-1.+sin(uTime*.6),.5);
-    
-    vec3 mousePosition=vec3(uMouse-.5,0.)*20.;
-    spherePositions[0]+=mousePosition*.2;
-    spherePositions[1]-=mousePosition*.2;
-    spherePositions[2]+=mousePosition*.4;
-    spherePositions[3]-=mousePosition*.6;
-    spherePositions[4]+=mousePosition*.06;
-    
-    float sphereSizes[5];
-    sphereSizes[0]=1.*r;
-    sphereSizes[1]=.8*r;
-    sphereSizes[2]=1.2*r;
-    sphereSizes[3]=.9*r;
-    sphereSizes[4]=1.1*r;
-    
-    float d=sphereSDF(p-spherePositions[0],sphereSizes[0]);
+    float d=sphereSDF(p-gPos[0],gSizes[0]);
     for(int i=1;i<5;i++){
-        d=smin(d,sphereSDF(p-spherePositions[i],sphereSizes[i]),1.5);
+        d=smin(d,sphereSDF(p-gPos[i],gSizes[i]),1.5);
     }
-    
     return d;
 }
 
+// Optimized Tetrahedral normal calculation (4 SDF taps instead of 6)
 vec3 getNormal(vec3 p){
-    const float epsilon=.001;
-    return normalize(vec3(
-            sceneSDF(p+vec3(epsilon,0.,0.))-sceneSDF(p-vec3(epsilon,0.,0.)),
-            sceneSDF(p+vec3(0.,epsilon,0.))-sceneSDF(p-vec3(0.,epsilon,0.)),
-            sceneSDF(p+vec3(0.,0.,epsilon))-sceneSDF(p-vec3(0.,0.,epsilon))
-        ));
+    vec2 e=vec2(1.,-1.)*.001;
+    return normalize(
+        e.xyy*sceneSDF(p+e.xyy)+
+        e.yyx*sceneSDF(p+e.yyx)+
+        e.yxy*sceneSDF(p+e.yxy)+
+        e.xxx*sceneSDF(p+e.xxx)
+    );
+}
+
+// Raymarch function returns distance. Also outputs the steps taken for fake AO.
+float raymarch(vec3 ro,vec3 rd,out int steps){
+    float dO=0.;
+    for(int i=0;i<MAX_STEPS;i++){
+        vec3 p=ro+rd*dO;
+        float dS=sceneSDF(p);
+        dO+=dS;
+        steps=i;
+        if(dS<SURF_DIST||dO>MAX_DIST)break;
+    }
+    return dO;
+}
+
+void main(){
+    initScene();// Calculate dynamic variables once globally
+    
+    vec2 uv=vUv*2.-1.;
+    uv.x*=uResolution.x/uResolution.y;
+    
+    vec3 ro=vec3(uMouse,5.);// Ray origin
+    vec3 rd=normalize(vec3(uv,-1.));// Ray direction
+    
+    int steps;
+    float dist=raymarch(ro,rd,steps);
+    
+    // Background: Radial dark gradient
+    //vec3 color=vec3(.02,.03,.08)*(1.-length(uv)*.4);
+    vec4 finalOutput=vec4(0.,0.,0.,0.);
+
+    if(dist<MAX_DIST){
+        vec3 p=ro+rd*dist;
+        vec3 n=getNormal(p);
+        vec3 v=normalize(ro-p);
+        vec3 l=normalize(uLightPos-p);
+        
+        // Base Diffuse & Specular
+        float dif=max(dot(n,l),0.);
+        vec3 ref=reflect(-l,n);
+        float spe=pow(max(dot(v,ref),0.),32.);
+        
+        // EFFECT 1: Fresnel rim lighting (jelly-like edges)
+        float fresnel=pow(1.-max(dot(n,v),0.),4.);
+        
+        // EFFECT 2: Iridescent coloring (moves across the object space)
+        vec3 albedo=palette(length(p)*.15-uTime*.2);
+        
+        // EFFECT 3: Fake Ambient Occlusion based on raymarch iterations
+        // Objects clustered together take more steps to solve, generating shadows.
+        float ao=1.-float(steps)/float(MAX_STEPS);
+        ao=clamp(ao*ao+.2,0.,1.);
+        
+        // Combine lighting
+        vec3 color=albedo*dif*ao;
+        color+=vec3(1.)*spe*ao;// Specular highlight
+        color+=albedo*fresnel*.8;// Rim light
+        color+=albedo*.1*ao;// Ambient fill light
+        finalOutput=vec4(color,1.);
+
     }
     
-    vec3 raymarch(vec3 ro,vec3 rd){
-        float totalDistance=0.;
-        const int maxSteps=100;
-        const float hitThreshold=.001;
-        
-        for(int i=0;i<maxSteps;i++){
-            vec3 p=ro+rd*totalDistance;
-            float dist=sceneSDF(p);
-            if(dist<hitThreshold){
-                vec3 normal=getNormal(p);
-                
-                // Lighting
-                vec3 lightDir=normalize(uLightPos-p);
-                float diffuse=max(dot(normal,lightDir),0.);
-                
-                // Specular reflection
-                vec3 viewDir=normalize(-rd);
-                vec3 reflectDir=reflect(-lightDir,normal);
-                float specular=pow(max(dot(viewDir,reflectDir),0.),32.);// Glossy highlight
-                
-                // Base and stripe colors
-                vec3 baseColor=palette(uTime*.1);
-                vec3 finalColor=baseColor*diffuse+vec3(1.)*specular;
-                
-                return finalColor;
-            }
-            totalDistance+=dist;
-            if(totalDistance>50.)break;// Escape if too far
-        }
-        
-        return vec3(-1.);// Indicates no hit
-    }
+    // EFFECT 4: Vignette (darkens corners of screen)
+    finalOutput*=1.-dot(uv,uv)*.15;
     
-    void main(){
-        vec2 uv=vUv*2.-1.;
-        uv.x*=uResolution.x/uResolution.y;
-        
-        vec3 ro=vec3(uMouse,5.);// Ray origin
-        vec3 rd=normalize(vec3(uv,-1.));// Ray direction
-        
-        vec3 color=raymarch(ro,rd);
-        if(color.r<0.){
-            discard;// Remove fragments not part of spheres
-        }
-        
-        gl_FragColor=vec4(color,1.);
-    }
+    // EFFECT 5: Gamma Correction (essential for realistic lighting gradients)
+    finalOutput.rgb=pow(finalOutput.rgb,vec3(.4545));
     
+    gl_FragColor=finalOutput;
+}

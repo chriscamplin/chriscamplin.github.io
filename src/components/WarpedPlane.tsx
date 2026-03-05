@@ -1,120 +1,136 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { animate, useMotionValue } from 'framer-motion'
 
 interface AnimatedMeshProps {
-  track: React.MutableRefObject<HTMLElement>
+  track: React.RefObject<HTMLElement>
   margin: number
   priority: number
-  scale: THREE.Vector3
+  scale: { x: number; y: number; z: number } | any
   scrollState: any
   inViewport: boolean
-  scene: THREE.Scene
 }
-
 export function WarpedPlane(props: AnimatedMeshProps) {
-  const mesh = React.useRef<THREE.Mesh>(null)
-  const warpUniforms = {
+  const { track, scale, scrollState, inViewport, ...meshProps } = props
+  const mesh = useRef<THREE.Mesh>(null)
+
+  // 1. Framer Motion values for smooth hovering
+  const hoverStrength = useMotionValue(0)
+  const [texture, setTexture] = useState<THREE.Texture | null>(null)
+
+  // 2. Uniforms Ref
+  const uniforms = useRef({
     uTime: { value: 0.0 },
     uScrollDistortion: { value: 0.0 },
-  }
-
-  const onBeforeCompile = (shader: any) => {
-    // Link uniforms from userData
-    if (mesh.current) {
-      shader.uniforms.uTime = mesh.current.userData.uniforms.uTime
-      shader.uniforms.uScrollDistortion = mesh.current.userData.uniforms.uScrollDistortion
-    }
-
-    // Modify vertex shader to add warping
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      `#include <common>
-      uniform float uTime;
-      uniform float uScrollDistortion;`
-    )
-
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      `#include <begin_vertex>
-      float warpFactor = uScrollDistortion * sin(position.y * 6.666 + uTime * 2.0);
-      transformed.x += warpFactor;
-      transformed.y += warpFactor;
-      transformed.z += warpFactor;`
-    )
-  }
-
-  const [isHovered, setIsHovered] = React.useState(false)
-
-  useEffect(() => {
-    if (!mesh.current) return
-
-    if (props.track.current) {
-      props.track.current?.addEventListener('pointerover', () => {
-        setIsHovered(true)
-      })
-      props.track.current?.addEventListener('pointerout', () => {
-        setIsHovered(false)
-      })
-    }
-    // Attach custom uniforms to the mesh's userData
-    mesh.current.userData.uniforms = warpUniforms
-  }, [])
-
-  useEffect(() => {
-    let tex
-    if (props.track.current && props.track.current.lastChild) {
-      const lastChild = props.track.current.lastChild as HTMLImageElement
-      if (lastChild && lastChild.src) {
-        tex = new THREE.TextureLoader().load(lastChild.src)
-      }
-    }
-    if (!tex) return
-    //tex.magFilter = THREE.NearestFilter
-    //tex.minFilter = THREE.LinearMipMapLinearFilter
-
-    if (!mesh || !mesh.current) return
-    const MATERIAL = mesh.current.material as THREE.MeshBasicMaterial
-    MATERIAL.map = tex
-  }, [props.track.current])
-  const previousScroll = React.useRef(0) // To track the previous scroll position
-  const scrollVelocity = React.useRef(0) // To track scroll velocity
-  const targetScale = React.useRef(props.scale.clone())
-
-  useFrame((state, delta) => {
-    // console.log({ targetScale })
-    if (mesh.current) {
-      // Update uniforms dynamically
-      const { uTime, uScrollDistortion } = mesh.current.userData.uniforms
-      uTime.value += delta // Increment time
-      // Calculate scroll velocity
-      const currentScroll = props.scrollState.progress // Assume scrollState.scroll gives current scroll position
-      scrollVelocity.current = (currentScroll - previousScroll.current) / delta
-      previousScroll.current = currentScroll
-
-      // Update the target scale based on hover state
-      const hoveredScale = props.scale.clone().multiplyScalar(2.1) // Scale up by 10%
-      targetScale.current = isHovered ? hoveredScale : props.scale
-
-      // Smoothly interpolate the scale
-      const currentScale = mesh.current.scale
-      // Adjust distortion based on hover state
-      // console.log({ isHovered: props.isHovered })
-      uScrollDistortion.value = isHovered
-        ? 0.004 // Fixed distortion on hover
-        : scrollVelocity.current * 0.01 // Dynamic distortion when not hovered
-    }
+    uHover: { value: 0.0 },
   })
 
-  const customProgramCacheKey = () => Math.random().toString()
+  // Sync Texture from DOM img
+  useLayoutEffect(() => {
+    const img = track.current?.querySelector('img')
+    if (img) {
+      const tex = new THREE.Texture(img)
+      tex.needsUpdate = true
+      tex.colorSpace = THREE.SRGBColorSpace
+      setTexture(tex)
+    }
+  }, [track])
+
+  // 3. Hover Event Listeners using Framer Motion 12 'animate'
+  useEffect(() => {
+    const element = track.current
+    if (!element) return
+
+    const onPointerEnter = () => {
+      // Spring animation for "natural" feel
+      animate(hoverStrength, 1, {
+        type: 'spring',
+        stiffness: 260,
+        damping: 20,
+      })
+    }
+
+    const onPointerLeave = () => {
+      animate(hoverStrength, 0, {
+        type: 'spring',
+        stiffness: 300,
+        damping: 35,
+      })
+    }
+
+    element.addEventListener('pointerenter', onPointerEnter)
+    element.addEventListener('pointerleave', onPointerLeave)
+    return () => {
+      element.removeEventListener('pointerenter', onPointerEnter)
+      element.removeEventListener('pointerleave', onPointerLeave)
+    }
+  }, [track, hoverStrength])
+
+  // 4. Custom Shader
+  const onBeforeCompile = useCallback((shader: any) => {
+    shader.uniforms.uTime = uniforms.current.uTime
+    shader.uniforms.uScrollDistortion = uniforms.current.uScrollDistortion
+    shader.uniforms.uHover = uniforms.current.uHover
+
+    shader.vertexShader = `
+      uniform float uTime;
+      uniform float uScrollDistortion;
+      uniform float uHover;
+      ${shader.vertexShader}
+    `.replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+      
+      // 1. Vertical Scroll Warp
+      float scrollWarp = uScrollDistortion * sin(position.y * 5.0 + uTime * 2.0);
+      
+      // 2. Hover Ripple (Natural wave)
+      // distance from center (0,0)
+      float dist = distance(uv, vec2(0.5));
+      float ripple = sin(dist * 10.0 - uTime * 4.0) * 0.05;
+      
+      // Combine them
+      transformed.x += scrollWarp;
+      transformed.y += scrollWarp;
+      transformed.z += (scrollWarp * 2.0) + (ripple * uHover);
+      `,
+    )
+  }, [])
+
+  // 5. Render Loop
+  const previousScroll = useRef(0)
+  useFrame((state, delta) => {
+    if (!inViewport) return
+
+    // Update Time
+    uniforms.current.uTime.value += delta
+
+    // Update Hover Strength from Framer Motion
+    uniforms.current.uHover.value = hoverStrength.get()
+
+    // Update Scroll Distortion
+    const currentScroll = scrollState.progress
+    const velocity = (currentScroll - previousScroll.current) / Math.max(delta, 0.001)
+    previousScroll.current = currentScroll
+
+    uniforms.current.uScrollDistortion.value = THREE.MathUtils.lerp(
+      uniforms.current.uScrollDistortion.value,
+      velocity * 0.04,
+      0.1,
+    )
+  })
 
   return (
-    <mesh ref={mesh} {...props}>
-      <planeGeometry args={[1, 1, 16, 16]} />
+    <mesh ref={mesh} scale={scale} {...meshProps}>
+      {/* High segments required for smooth ripple */}
+      <planeGeometry args={[1, 1, 64, 64]} />
       <meshBasicMaterial
+        transparent
+        map={texture}
         onBeforeCompile={onBeforeCompile}
-        customProgramCacheKey={customProgramCacheKey}
-        color='#ffffff'
+        customProgramCacheKey={() => 'warped-plane-ripple-v2'}
       />
     </mesh>
   )

@@ -177,5 +177,5 @@ void main(){
     
     video=mix(video,hover,clamp(c2+progress,0.,1.));
     
-    gl_FragColor=vec4(video.rgb,uAlpha);//*finalMask);
+    gl_FragColor=vec4(video.rgb,uAlpha*.1);//*finalMask);
 }

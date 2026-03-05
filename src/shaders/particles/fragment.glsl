@@ -3,42 +3,48 @@
 varying vec3 vColor;
 varying vec3 vPos;
 varying vec4 vWorldPosition;
+varying float vViewZ;
+varying vec3 vViewPos;
 
-void main()
-{
-    // Center the coordinates (gl_PointCoord ranges from 0 to 1)
-    vec2 coord=gl_PointCoord-.5;// Centered around (0,0)
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
+uniform float uFogScale;
+
+void main(){
+    vec2 coord=gl_PointCoord-.5;
     float distanceToCenter=length(coord);
     
-    // Discard fragments outside the sphere's radius
     if(distanceToCenter>.5){
         discard;
     }
     
-    // Simulate a sphere using the Z component of a pseudo-normal
-    float sphereZ=sqrt(.25-distanceToCenter*distanceToCenter);// Sphere equation: x^2 + y^2 + z^2 = r^2
+    float sphereZ=sqrt(.25-distanceToCenter*distanceToCenter);
     vec3 normal=normalize(vec3(coord,sphereZ));
     
-    // Simple lighting with a light direction
-    vec3 lightDir=normalize(vec3(.5,.5,1.));// Light coming from top-right-front
+    vec3 lightDir=normalize(vec3(.5,.5,1.));
     float diffuse=max(dot(normal,lightDir),0.);
     
-    // Combine lighting with the particle color
-    vec3 shadedColor=vColor*diffuse;
-
-        // Final fragment color with smooth alpha near edges
-    float edgeAlpha=smoothstep(.5,.48,distanceToCenter);// Smooth alpha to soften edges
-
-    // Adjust alpha based on distance to the camera
-    float depth=-vWorldPosition.z;// Invert for positive depth values
-    float depthAlpha=clamp(1.-depth/2.,.1,1.);// Adjust '10.0' based on desired fade range
-
+    vec3 ambientLight=vec3(.1);
+    vec3 shadedColor=(vColor*diffuse)+ambientLight;
     
-    // Combine edge alpha with depth-based alpha
+    vec3 viewDir=normalize(-vViewPos);
+    vec3 reflectDir=reflect(-lightDir,normal);
+    float specular=pow(max(dot(viewDir,reflectDir),0.),16.);
+    shadedColor+=specular*vec3(1.);
+    
+    float edgeAlpha=smoothstep(.5,.48,distanceToCenter);
+    
+    float depth=-vWorldPosition.z;
+    float depthAlpha=clamp(depth/3.,.1,1.);
+    
     float alpha=edgeAlpha*depthAlpha;
-    gl_FragColor=vec4(shadedColor,alpha);
     
-    // Optional: Tone mapping and color correction
-    // #include<tonemapping_fragment>
-    // #include<colorspace_fragment>
+    float fogZ=vViewZ*uFogScale;
+    float fog=smoothstep(uFogNear,uFogFar,fogZ);
+    vec3 foggedColor=mix(shadedColor,uFogColor,fog);
+    
+    alpha*=mix(1.,.35,fog);
+    
+    gl_FragColor=vec4(foggedColor,alpha);
 }
