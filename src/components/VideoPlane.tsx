@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 //@ts-ignore
@@ -14,89 +14,72 @@ interface VideoPlaneProps {
 const rotateMatrix = (a: number) => [Math.cos(a), -Math.sin(a), Math.sin(a), Math.cos(a)]
 
 const multiplyMatrixAndPoint = (matrix: number[], point: number[]) => {
-  const c0r0 = matrix[0]
-  const c1r0 = matrix[1]
-  const c0r1 = matrix[2]
-  const c1r1 = matrix[3]
   const x = point[0]
   const y = point[1]
-  return [Math.abs(x * c0r0 + y * c0r1), Math.abs(x * c1r0 + y * c1r1)]
+  return [
+    Math.abs(x * matrix[0] + y * matrix[2]),
+    Math.abs(x * matrix[1] + y * matrix[3]),
+  ]
 }
 
 export const getRatio = (
   { x: w, y: h }: { x: number; y: number },
   { width, height }: { width: number; height: number },
-  r = 0
+  r = 0,
 ) => {
   const m = multiplyMatrixAndPoint(rotateMatrix(THREE.MathUtils.degToRad(r)), [w, h])
-  const originalRatio = {
-    w: m[0] / width,
-    h: m[1] / height,
-  }
-
-  const coverRatio = 1 / Math.max(originalRatio.w, originalRatio.h)
-
-  return new THREE.Vector2(originalRatio.w * coverRatio, originalRatio.h * coverRatio)
+  const coverRatio = 1 / Math.max(m[0] / width, m[1] / height)
+  return new THREE.Vector2((m[0] / width) * coverRatio, (m[1] / height) * coverRatio)
 }
 
 export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
   const planeRef = useRef<THREE.Mesh>(null)
-  const videoTextureRef = useRef<THREE.VideoTexture | null>(null)
-  const hoverTextureRef = useRef<THREE.VideoTexture | null>(null)
 
-  const uniforms = useRef({
-    uVideoTexture: { value: null as THREE.VideoTexture | null },
-    uHovermap: { value: null as THREE.VideoTexture | null },
-    uAlpha: { value: 1.0 },
-    uTime: { value: 0.0 },
-    uProgressHover: { value: 0.0 },
-    uProgressClick: { value: 0.0 },
-    uRes: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-    uMouse: { value: new THREE.Vector2(0, 0) },
-    uRatio: { value: new THREE.Vector2(1, 1) },
-    uHoverratio: { value: new THREE.Vector2(1, 1) },
-    uVelocity: { value: 0.0 },
-  })
-
-  const [isHovered, setIsHovered] = React.useState(false)
+  const mouse = useRef(new THREE.Vector2(0, 0))
+  const targetMouse = useRef(new THREE.Vector2(0, 0))
   const targetProgressClick = useRef(0)
 
-  // Video Texture Initialization
+  const [isHovered, setIsHovered] = useState(false)
+
+  // Memoize to avoid reinstantiating uniforms during renders
+  const uniforms = useMemo(
+    () => ({
+      uVideoTexture: { value: null as THREE.VideoTexture | null },
+      uHovermap: { value: null as THREE.VideoTexture | null },
+      uAlpha: { value: 1.0 },
+      uTime: { value: 0.0 },
+      uProgressHover: { value: 0.0 },
+      uProgressClick: { value: 0.0 },
+      uRes: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uMouse: { value: new THREE.Vector2(0, 0) },
+      uVelocity: { value: 0.0 },
+    }),
+    [],
+  )
+
+  // Setup Textures
   useEffect(() => {
-    if (!track || !track.current) return
+    if (!track?.current) return
 
     const video1 = track.current.querySelector('#vid1') as HTMLVideoElement
     const video2 = track.current.querySelector('#vid2') as HTMLVideoElement
-    if (!video1 || !video2) {
-      console.error('No video elements found.')
-      return
-    }
-
-    video1.crossOrigin = 'Anonymous'
-    video1.loop = true
-    video1.muted = true
-    video1.autoplay = true
-    video1.playsInline = true
-    video1.play()
-
-    video2.crossOrigin = 'Anonymous'
-    video2.loop = true
-    video2.muted = true
-    video2.autoplay = true
-    video2.playsInline = true
-    video2.play()
+    if (!video1 || !video2) return
+    ;[video1, video2].forEach((v) => {
+      v.crossOrigin = 'Anonymous'
+      v.loop = v.muted = v.autoplay = v.playsInline = true
+      v.play()
+    })
 
     const texture1 = new THREE.VideoTexture(video1)
     const texture2 = new THREE.VideoTexture(video2)
-    texture1.minFilter = THREE.LinearFilter
-    texture1.magFilter = THREE.LinearFilter
-    texture1.format = THREE.RGBAFormat
 
-    videoTextureRef.current = texture1
-    hoverTextureRef.current = texture2
+    // Setting properties explicitly
+    texture1.minFilter = texture1.magFilter = THREE.LinearFilter
+    texture2.minFilter = texture2.magFilter = THREE.LinearFilter
+    texture1.format = texture2.format = THREE.RGBAFormat
 
-    uniforms.current.uVideoTexture.value = texture1
-    uniforms.current.uHovermap.value = texture2
+    uniforms.uVideoTexture.value = texture1
+    uniforms.uHovermap.value = texture2
 
     return () => {
       video1.pause()
@@ -104,113 +87,80 @@ export const VideoPlane: React.FC<VideoPlaneProps> = ({ track, ...props }) => {
       texture1.dispose()
       texture2.dispose()
     }
-  }, [track])
+  }, [track, uniforms])
 
-  // Mouse Tracking
+  // Native mouse & resize tracking
   useEffect(() => {
-    const mouse = new THREE.Vector2(0, 0) // Current interpolated mouse position
-    const targetMouse = new THREE.Vector2(0, 0) // Target mouse position in pixels
-
-    const lerp = (start: number, end: number, alpha: number) =>
-      start + (end - start) * alpha
-
     const handleMouseMove = (event: MouseEvent) => {
-      // Capture the exact mouse position in pixel coordinates
-      targetMouse.x = event.clientX
-      targetMouse.y = event.clientY
+      // Pre-normalize viewport vectors to GPU (-1 to 1)
+      targetMouse.current.x = (event.clientX / window.innerWidth) * 2 - 1
+      targetMouse.current.y = -(event.clientY / window.innerHeight) * 2 + 1
     }
 
-    const updateMousePosition = () => {
-      // Smoothly interpolate towards the target mouse position
-      mouse.x = lerp(mouse.x, targetMouse.x, 0.1) // Adjust alpha for smoothness
-      mouse.y = lerp(mouse.y, targetMouse.y, 0.1)
-
-      // Update the uniform with pixel coordinates
-      uniforms.current.uMouse.value.set(mouse.x, mouse.y)
+    const handleResize = () => {
+      uniforms.uRes.value.set(window.innerWidth, window.innerHeight)
     }
 
-    window.addEventListener('mousemove', handleMouseMove)
-
-    // Create a loop to continuously update the mouse position
-    const interval = setInterval(updateMousePosition, 16) // ~60FPS
+    // Passive boosts scroll/mouse responsiveness
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    window.addEventListener('resize', handleResize, { passive: true })
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
-      clearInterval(interval)
+      window.removeEventListener('resize', handleResize)
     }
-  }, [])
+  }, [uniforms])
 
-  // Handle Resizing
+  // Track hover state natively
   useEffect(() => {
-    const handleResize = () => {
-      uniforms.current.uRes.value.set(window.innerWidth, window.innerHeight)
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    if (!track?.current) return
 
-  // Hover and Click Effects
-  useEffect(() => {
-    if (!track || !track.current) return
+    const trackEl = track.current
+    const setHover = () => setIsHovered(true)
+    const unsetHover = () => setIsHovered(false)
+    const setClick = () => (targetProgressClick.current = 1.0)
+    const unsetClick = () => (targetProgressClick.current = 0.0)
 
-    const handlePointerOver = () => setIsHovered(true)
-    const handlePointerOut = () => setIsHovered(false)
-    const handlePointerDown = () => (targetProgressClick.current = 1.0)
-    const handlePointerUp = () => (targetProgressClick.current = 0.0)
-
-    const trackElement = track.current
-    trackElement.addEventListener('pointerover', handlePointerOver)
-    trackElement.addEventListener('pointerout', handlePointerOut)
-    trackElement.addEventListener('pointerdown', handlePointerDown)
-    trackElement.addEventListener('pointerup', handlePointerUp)
+    trackEl.addEventListener('pointerover', setHover)
+    trackEl.addEventListener('pointerout', unsetHover)
+    trackEl.addEventListener('pointerdown', setClick)
+    trackEl.addEventListener('pointerup', unsetClick)
 
     return () => {
-      trackElement.removeEventListener('pointerover', handlePointerOver)
-      trackElement.removeEventListener('pointerout', handlePointerOut)
-      trackElement.removeEventListener('pointerdown', handlePointerDown)
-      trackElement.removeEventListener('pointerup', handlePointerUp)
+      trackEl.removeEventListener('pointerover', setHover)
+      trackEl.removeEventListener('pointerout', unsetHover)
+      trackEl.removeEventListener('pointerdown', setClick)
+      trackEl.removeEventListener('pointerup', unsetClick)
     }
   }, [track])
-  const previousScroll = React.useRef(0) // To track the previous scroll position
-  const scrollVelocity = React.useRef(0) // To track scroll velocity
 
-  // Animate in Frame Loop
+  // Animate strictly inside the frame cycle (eliminates the previous buggy setInterval)
   useFrame((state, delta) => {
-    // Lerp progress values
-    uniforms.current.uProgressClick.value = THREE.MathUtils.lerp(
-      uniforms.current.uProgressClick.value,
+    uniforms.uProgressClick.value = THREE.MathUtils.lerp(
+      uniforms.uProgressClick.value,
       targetProgressClick.current,
-      0.1
+      0.1,
     )
-
-    uniforms.current.uProgressHover.value = THREE.MathUtils.lerp(
-      uniforms.current.uProgressHover.value,
+    uniforms.uProgressHover.value = THREE.MathUtils.lerp(
+      uniforms.uProgressHover.value,
       isHovered ? 1.0 : 0.0,
-      0.1
+      0.1,
     )
 
-    // Increment time uniform
-    uniforms.current.uTime.value += delta
-    // Ensure video textures update
-    if (videoTextureRef.current) {
-      videoTextureRef.current.needsUpdate = true
-    }
-    if (hoverTextureRef.current) {
-      hoverTextureRef.current.needsUpdate = true
-    }
+    mouse.current.x = THREE.MathUtils.lerp(mouse.current.x, targetMouse.current.x, 0.1)
+    mouse.current.y = THREE.MathUtils.lerp(mouse.current.y, targetMouse.current.y, 0.1)
+    uniforms.uMouse.value.set(mouse.current.x, mouse.current.y)
 
-    // Calculate scroll velocity
-    // const currentScroll = props.scrollState.progress // Assume scrollState.scroll gives current scroll position
-    // scrollVelocity.current = (currentScroll - previousScroll.current) / delta
-    // previousScroll.current = currentScroll
-    // uniforms.current.uVelocity.value = scrollVelocity.current * 0.1
+    uniforms.uTime.value += delta
+
+    // Add back scroll/velocity lerps mapping to `uniforms.uVelocity.value` here
   })
 
   return (
     <mesh ref={planeRef} {...props}>
       <planeGeometry args={[0.75, 0.75, 16, 16]} />
       <shaderMaterial
-        uniforms={uniforms.current}
+        uniforms={uniforms}
         vertexShader={vertexShader}
         fragmentShader={fragmentShader}
         defines={{ PI: Math.PI, PR: window.devicePixelRatio.toFixed(1) }}

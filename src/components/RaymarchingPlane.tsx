@@ -5,10 +5,15 @@ import { useRef, useEffect } from 'react'
 import vertexShader from '../shaders/blob/vertex.glsl'
 import fragmentShader from '../shaders/blob/fragment.glsl'
 
-// 1. Define the class first
+const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
+
 class RaymarchingMaterial extends THREE.ShaderMaterial {
   constructor() {
     super({
+      defines: {
+        IS_MOBILE: isMobile ? 1 : 0,
+      },
+
       uniforms: {
         uTime: { value: 0 },
         uResolution: { value: new THREE.Vector2() },
@@ -18,6 +23,7 @@ class RaymarchingMaterial extends THREE.ShaderMaterial {
       },
       vertexShader,
       fragmentShader,
+      transparent: true,
     })
   }
 
@@ -49,7 +55,6 @@ class RaymarchingMaterial extends THREE.ShaderMaterial {
   }
 }
 
-// 2. Extend and declare the types
 extend({ RaymarchingMaterial })
 
 declare module '@react-three/fiber' {
@@ -58,7 +63,6 @@ declare module '@react-three/fiber' {
   }
 }
 
-// 3. Define Props interface
 interface RaymarchingPlaneProps extends Partial<ThreeElements['mesh']> {
   scrollState: {
     progress: number

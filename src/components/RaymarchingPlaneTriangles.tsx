@@ -51,7 +51,7 @@ export function RaymarchingPlaneTriangles(props: RaymarchingPlaneProps) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
   const previousScroll = useRef(0) // To track the previous scroll position
   const scrollVelocity = useRef(0) // To track scroll velocity
-  const mousePosition = useRef({ x: -0.05, y: 0.05 })
+  const mousePosition = useRef({ x: 0.666, y: 0.6666 })
   // Mouse event listener for manual mouse data capture
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {

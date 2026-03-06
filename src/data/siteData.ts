@@ -17,7 +17,7 @@ export const siteData = [
   {
     name: 'PMI - Inovation Quotient ',
     imgPath: '/img/site_preview_iq_01_opt.jpg',
-    url: 'https://impact.economist.com/projects/innovation-quotient/',
+    url: '',
   },
   {
     name: 'Lloyds Register - Global maritime trends',

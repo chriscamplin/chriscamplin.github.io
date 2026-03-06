@@ -1,6 +1,4 @@
 #define PI 3.14159265359
-#define MAX_STEPS 100
-#define SURF_DIST .001
 #define MAX_DIST 50.
 
 uniform float uTime;
@@ -10,10 +8,21 @@ uniform vec2 uMouse;
 uniform vec3 uLightPos;
 varying vec2 vUv;
 
+#if IS_MOBILE==1
+#define MAX_STEPS 40
+#define SURF_DIST .005
+#define BLOB_COUNT 3
+#else
+#define MAX_STEPS 100
+#define SURF_DIST .001
+#define BLOB_COUNT 5
+#endif
+
+
 // Globals to store precomputed scene values per-pixel
 // This prevents evaluating sin/cos 100+ times per pixel inside the raymarch loop!
-vec3 gPos[5];
-float gSizes[5];
+vec3 gPos[BLOB_COUNT];
+float gSizes[BLOB_COUNT];
 
 vec3 palette(float t){
     return.5+.5*cos((PI*2.)*(t+vec3(.4,1.2,.8)));
@@ -34,21 +43,28 @@ void initScene(){
     vec3 m=vec3(uMouse-.5,0.)*20.;
     
     gPos[0]=vec3(sin(uTime*.5)*1.5,-cos(uTime*.6)*.5,0.)+m*.2;
-    gPos[1]=vec3(1.5+sin(uTime*.8),-1.5+cos(uTime*.4),-1.)-m*.2;
-    gPos[2]=vec3(-1.+sin(uTime*.7)*1.5,-.5+cos(uTime*.9)*.5,1.)+m*.4;
-    gPos[3]=vec3(.5+cos(uTime*.3)*1.5,-1.5+sin(uTime*.5)*.5,-.5)-m*.6;
-    gPos[4]=vec3(-1.5+cos(uTime*.2),-1.+sin(uTime*.6),.5)+m*.06;
-    
     gSizes[0]=1.*r;
+
+    gPos[1]=vec3(1.5+sin(uTime*.8),-1.5+cos(uTime*.4),-1.)-m*.2;
     gSizes[1]=.8*r;
+
+    gPos[2]=vec3(-1.+sin(uTime*.7)*1.5,-.5+cos(uTime*.9)*.5,1.)+m*.4;
     gSizes[2]=1.2*r;
-    gSizes[3]=.9*r;
-    gSizes[4]=1.1*r;
+
+    #if IS_MOBILE==0
+
+        gPos[3]=vec3(.5+cos(uTime*.3)*1.5,-1.5+sin(uTime*.5)*.5,-.5)-m*.6;
+        gSizes[3]=.9*r;
+
+        gPos[4]=vec3(-1.5+cos(uTime*.2),-1.+sin(uTime*.6),.5)+m*.06;
+        gSizes[4]=1.1*r;
+    #endif
+
 }
 
 float sceneSDF(vec3 p){
     float d=sphereSDF(p-gPos[0],gSizes[0]);
-    for(int i=1;i<5;i++){
+    for(int i=1;i<BLOB_COUNT;i++){
         d=smin(d,sphereSDF(p-gPos[i],gSizes[i]),1.5);
     }
     return d;

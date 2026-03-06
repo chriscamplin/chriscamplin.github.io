@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import * as THREE from 'three'
 import { motion, useTransform } from 'framer-motion'
@@ -97,6 +97,36 @@ const VerticalParallax = ({ children }: { children: React.ReactNode }) => {
         <Footer />
       </motion.div>
     </section>
+  )
+}
+
+const ProjectItem = ({ item }: { item: (typeof siteData)[0] }) => {
+  const [showOverlay, setShowOverlay] = useState(false)
+
+  // Treat empty strings or '#' as dead links
+  const isDeadLink = !item.url || item.url === '#'
+
+  const handleClick = () => {
+    if (isDeadLink) {
+      setShowOverlay(true)
+      // Auto-hide the overlay after 3 seconds
+      setTimeout(() => setShowOverlay(false), 3000)
+    } else {
+      window.open(item.url, '_blank')
+    }
+  }
+
+  return (
+    <Scene onClick={handleClick} canvas={(props) => <WarpedPlane {...props} />}>
+      <span>{item.name}</span>
+      <img src={item.imgPath} alt={item.name} crossOrigin='anonymous' />
+
+      {showOverlay && (
+        <div className='DeadLinkOverlay'>
+          <p>This project is no longer available online.</p>
+        </div>
+      )}
+    </Scene>
   )
 }
 
@@ -199,7 +229,11 @@ function Main() {
         theme={{ sizes: { titleBarHeight: '28px' }, fontSizes: { root: '10px' } }}
       />
 
-      <GlobalCanvas style={{ pointerEvents: 'none', width: '100%' }} linear />
+      <GlobalCanvas
+        dpr={[1, 1.5]}
+        style={{ pointerEvents: 'none', width: '100%' }}
+        linear
+      />
       <CircularText> Keep Scrolling... </CircularText>
 
       <SmoothScrollbar>
@@ -220,14 +254,7 @@ function Main() {
 
               <section className='Grid'>
                 {siteData.map((item) => (
-                  <Scene
-                    key={item.name}
-                    onClick={() => item.url && window.open(item.url, '_blank')}
-                    canvas={(props) => <WarpedPlane {...props} />}
-                  >
-                    <span>{item.name}</span>
-                    <img src={item.imgPath} alt={item.name} crossOrigin='anonymous' />
-                  </Scene>
+                  <ProjectItem key={item.name} item={item} />
                 ))}
 
                 <div className='ParticlesEl'>
