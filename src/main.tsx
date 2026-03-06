@@ -110,34 +110,34 @@ const ParticlesWebGL = () => {
     }
   })
 
-  const { gl } = useThree()
+  // const { gl } = useThree()
 
-  useEffect(() => {
-    gl.debug.checkShaderErrors = true
+  // useEffect(() => {
+  //   gl.debug.checkShaderErrors = true
 
-    gl.debug.onShaderError = (ctx, program, vertexShader, fragmentShader) => {
-      console.group('Shader compile/link failure')
+  //   gl.debug.onShaderError = (ctx, program, vertexShader, fragmentShader) => {
+  //     console.group('Shader compile/link failure')
 
-      console.log('PROGRAM LOG:')
-      console.log(ctx.getProgramInfoLog(program))
+  //     console.log('PROGRAM LOG:')
+  //     console.log(ctx.getProgramInfoLog(program))
 
-      console.log('VERTEX LOG:')
-      console.log(ctx.getShaderInfoLog(vertexShader))
+  //     console.log('VERTEX LOG:')
+  //     console.log(ctx.getShaderInfoLog(vertexShader))
 
-      console.log('FRAGMENT LOG:')
-      console.log(ctx.getShaderInfoLog(fragmentShader))
+  //     console.log('FRAGMENT LOG:')
+  //     console.log(ctx.getShaderInfoLog(fragmentShader))
 
-      console.groupCollapsed('VERTEX SOURCE')
-      console.log(ctx.getShaderSource(vertexShader))
-      console.groupEnd()
+  //     console.groupCollapsed('VERTEX SOURCE')
+  //     console.log(ctx.getShaderSource(vertexShader))
+  //     console.groupEnd()
 
-      console.groupCollapsed('FRAGMENT SOURCE')
-      console.log(ctx.getShaderSource(fragmentShader))
-      console.groupEnd()
+  //     console.groupCollapsed('FRAGMENT SOURCE')
+  //     console.log(ctx.getShaderSource(fragmentShader))
+  //     console.groupEnd()
 
-      console.groupEnd()
-    }
-  }, [gl])
+  //     console.groupEnd()
+  //   }
+  // }, [gl])
 
   return (
     <group rotation={[Math.PI * 0.5, 0, 0]} ref={groupRef}>
@@ -214,6 +214,7 @@ function Main() {
 
               <section>
                 <Title />
+                <Title text={'UI ENGINEER'} />
                 <StudioMarquee>Projects</StudioMarquee>
               </section>
 
@@ -229,8 +230,6 @@ function Main() {
                   </Scene>
                 ))}
 
-                <StudioMarquee>Generative video</StudioMarquee>
-
                 <div className='ParticlesEl'>
                   <UseCanvas>
                     <ParticlesWebGL />
@@ -240,12 +239,12 @@ function Main() {
 
               {/* Raymarching Blobs */}
               {/* <Scene
-                className='Placeholder ScrollScene FragShader'
-                canvas={(props) => <RaymarchingPlane {...props} />}
-                /> */}
+                  className='Placeholder ScrollScene FragShader'
+                  canvas={(props) => <RaymarchingPlane {...props} />}
+                  /> */}
 
               <StickyRaymarching />
-
+              <StudioMarquee>Generative video</StudioMarquee>
               {/* Video Sections */}
               {videoFiles.map((src, idx) => (
                 <section key={idx}>
