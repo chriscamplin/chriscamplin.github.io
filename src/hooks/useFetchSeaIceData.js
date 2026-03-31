@@ -1,152 +1,131 @@
 import { useEffect, useState } from 'react'
-// import { max, min } from 'd3-array'
-import { scaleRadial } from 'd3-scale'
-import { parse } from 'papaparse'
-import * as THREE from 'three'
+import {
+  MONTHS,
+  buildSpiralGeometry,
+  createSpiralMapper,
+  SEA_ICE_SPIRAL_RANGE,
+  SEA_ICE_SPIRAL_Z_STEP,
+} from '../helpers/createClimateSpiral'
+import { parseCsvText } from '../helpers/parseCsv'
 
-import { months } from '@/lib/constants'
-
-function mapToRange(value, inMin, inMax, outMin, outMax) {
-  return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
-}
-// ['/data/sea-ice-index/', 'extent_v3.0.csv', 12]
-const useFetchSeaIceData = (path) => {
+const useFetchSeaIceData = (paths) => {
   const [geometry, setGeometry] = useState()
+  const [yearlyData, setYearlyData] = useState([])
+  const [monthlyData, setMonthlyData] = useState([])
+  const [domain, setDomain] = useState([0, 1])
+  const [mapper, setMapper] = useState(
+    createSpiralMapper({
+      domain: [0, 1],
+      range: SEA_ICE_SPIRAL_RANGE,
+      zStep: SEA_ICE_SPIRAL_Z_STEP,
+    })
+  )
 
   useEffect(() => {
-    if (path.includes('undefined') || path.includes(' ')) return
-    const arr = [...new Array(path[2])].fill('')
-
-    const parseFiles = () => {
-      const filesData = []
-      Promise.all(
-        [...arr].map(
-          (_, i) =>
-            new Promise((resolve, reject) => {
-              parse(`${path[0]}${i + 1}_${path[1]}`, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                transform(value) {
-                  return Number.isNaN(Number(value)) ? value : Number(value)
-                },
-                complete: (results) => resolve(results), // Resolve each promise
-                error: reject,
-              })
-            })
-        )
-      )
-        .then((results) => {
-          console.log({ results })
-          results.forEach((result, index) => {
-            filesData.push({ [months[index]]: result.data })
-          })
-
-          const dataStructure = filesData[0]['Jan'].reduce(
-            (acc, curr) => ({
-              ...acc,
-              [curr['year']]: filesData.map((month, j) =>
-                filesData[j][Object.keys(month)[0]].find(
-                  (obj) => obj.year === curr['year']
-                )
-              ),
-            }),
-            []
-          )
-          const flattenDataMonthly = []
-          Object.keys(dataStructure).forEach((key) => {
-            dataStructure[key].forEach((datum) => {
-              flattenDataMonthly.push(datum)
-            })
-          })
-          const r = 390
-          // create a range of axis angles //
-          // X scale
-
-          // xyScale for the spiral positions
-          const xyScale = scaleRadial()
-            .domain([-1, 1.5])
-            .range([-2, r / 12 - 30])
-
-          const radians = Math.PI * 2
-          const step = radians / 12
-
-          const circles = []
-          for (let i = 0; i < flattenDataMonthly.length - 10; i += 1) {
-            // const { extent } = flattenDataMonthly[i]
-            if (!flattenDataMonthly[i]) break
-
-            circles.push(flattenDataMonthly[i][' extent'])
-          }
-          // console.log({ circles })
-
-          // console.log({ dataCurves })
-          //   console.log(min(circles), max(circles), circles)
-
-          const points = []
-          for (let i = 0; i < flattenDataMonthly.length - 10; i += 1) {
-            // const colorScale = scale(Mean, min.Mean, max.Mean, 0, 1);
-            if (!flattenDataMonthly[i]) break
-            const xAngle = Math.sin((i + 1) * step)
-            const yAngle = Math.cos((i + 1) * step)
-
-            const x = xyScale(flattenDataMonthly[i][' extent']) * xAngle
-            const y = xyScale(flattenDataMonthly[i][' extent']) * yAngle
-            const z = i * 0.02
-            const vector = new THREE.Vector3(
-              Number(x.toFixed(3)),
-              Number(y.toFixed(3)),
-              Number(z.toFixed(3))
-            )
-
-            points.push(vector)
-          }
-          const curve = new THREE.CatmullRomCurve3(points, false)
-          // console.log({ curve })
-          // const curvePath = curve.getPoints(500)
-          // const geometry = new THREE.BufferGeometry().setFromPoints(curvePath)
-          const geometry = new THREE.TubeGeometry(curve, 15000, 0.115, 8, false)
-          const pos = geometry.getAttribute('position')
-          const gradients = []
-          const lengths = []
-          for (let i = 0; i < pos.array.length; i += 3) {
-            const x = pos.array[i]
-            const y = pos.array[i + 1]
-            const z = pos.array[i + 2]
-            const vector = new THREE.Vector3(x, y, z)
-
-            const centerVector = new THREE.Vector3(0, 0, z)
-            const lengthToCenter = vector.distanceTo(centerVector)
-            const length = mapToRange(
-              lengthToCenter,
-              1.1077788772783308,
-              8.138178959765503,
-              0,
-              1
-            )
-            gradients.push(length)
-            lengths.push(lengthToCenter)
-          }
-          // console.log(pos.array)
-          // console.log(min(lengths))
-          // console.log(max(lengths))
-          // console.log(lengths)
-
-          const gradientPosition = new Float32Array(gradients)
-          geometry.setAttribute(
-            'gradientPosition',
-            new THREE.BufferAttribute(gradientPosition, 1)
-          )
-
-          setGeometry(geometry) // now since .then() excutes after all promises are resolved, filesData contains all the parsed files.
-        })
-        .catch((err) => console.log('Something went wrong:', err))
+    if (!paths || paths.length === 0) {
+      setGeometry(undefined)
+      setYearlyData([])
+      setMonthlyData([])
+      return
     }
-    parseFiles()
-  }, [])
-  // 042270
-  //   console.log({ rows: rows[0] }, rows.length)
-  return { geometry }
+
+    let cancelled = false
+
+    async function parseFiles() {
+      const monthlyFiles = await Promise.all(
+        paths.map(async (path) => {
+          const response = await fetch(path)
+          const csvText = await response.text()
+          return parseCsvText(csvText)
+        })
+      )
+
+      const byYear = new Map()
+
+      monthlyFiles.forEach((rows, monthIndex) => {
+        rows.forEach((row) => {
+          const year = Number(row.year)
+          const extent = Number(row.extent)
+
+          if (Number.isNaN(year) || Number.isNaN(extent)) {
+            return
+          }
+
+          if (!byYear.has(year)) {
+            byYear.set(year, [])
+          }
+
+          byYear.get(year).push({
+            year,
+            month: MONTHS[monthIndex],
+            monthIndex,
+            extent,
+          })
+        })
+      })
+
+      const years = [...byYear.keys()].sort((a, b) => a - b)
+      const monthlyData = years.flatMap((year) =>
+        byYear
+          .get(year)
+          .sort((a, b) => a.monthIndex - b.monthIndex)
+      )
+
+      const extents = monthlyData.map((entry) => entry.extent)
+      const minExtent = Math.min(...extents)
+      const maxExtent = Math.max(...extents)
+      const nextMapper = createSpiralMapper({
+        domain: [minExtent, maxExtent],
+        range: SEA_ICE_SPIRAL_RANGE,
+        zStep: SEA_ICE_SPIRAL_Z_STEP,
+      })
+
+      const nextGeometry = buildSpiralGeometry({
+        values: extents,
+        mapper: nextMapper,
+        tubeRadius: 0.16,
+      })
+
+      const nextYearlyData = years.map((year) => {
+        const entries = byYear
+          .get(year)
+          .sort((a, b) => a.monthIndex - b.monthIndex)
+        const values = entries.map((entry) => entry.extent)
+        const averageExtent =
+          values.reduce((sum, value) => sum + value, 0) / values.length
+        const minimumExtent = Math.min(...values)
+
+        return {
+          year,
+          averageExtent,
+          minimumExtent,
+        }
+      })
+
+      if (!cancelled) {
+        setGeometry(nextGeometry)
+        setYearlyData(nextYearlyData)
+        setMonthlyData(monthlyData)
+        setDomain([minExtent, maxExtent])
+        setMapper(nextMapper)
+      }
+    }
+
+    parseFiles().catch((error) => {
+      console.error('Failed to fetch sea ice CSV data', error)
+      if (!cancelled) {
+        setGeometry(undefined)
+        setYearlyData([])
+        setMonthlyData([])
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [paths])
+
+  return { geometry, yearlyData, monthlyData, domain, mapper }
 }
 
 export default useFetchSeaIceData

@@ -1,34 +1,74 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { mapValue } from '../../helpers/mapValue'
+import { getSpiralMeshTransform } from '../../helpers/createClimateSpiral'
 
-import useYearCounter from '../..//hooks/useYearCounter'
+export default function Spiral({
+  geometry,
+  material,
+  counter = 0,
+  total = 1,
+  revealStart = 1,
+  setStep1Complete,
+  rotation = [0, 0, 0],
+  scale = [1, 1, 1],
+  axisOuterRadius = 9,
+  axisClearance = 0.35,
+  transform,
+}) {
+  const hasTriggeredRef = useRef(false)
 
-import { mapValue } from '../..//helpers/mapValue'
+  const meshTransform = useMemo(
+    () =>
+      transform ??
+      getSpiralMeshTransform({
+        geometry,
+        rotation,
+        scale,
+        axisOuterRadius,
+        axisClearance,
+      }),
+    [
+      axisClearance,
+      axisOuterRadius,
+      geometry,
+      rotation,
+      scale,
+      transform,
+    ]
+  )
 
-export default function Spiral({ geometry, material, setStep1Complete }) {
-  const { counter } = useYearCounter()
   useEffect(() => {
+    if (material?.uniforms?.fraction) {
+      const maxIndex = Math.max(total - 1, 1)
+      const fractionValue = mapValue(counter, 0, maxIndex, revealStart, 0)
+      material.uniforms.fraction.value = Math.max(0, fractionValue)
 
-    const fractionValue = 1.67 - mapValue(counter, 0, 143, 0.35, 1.175)
-    // const fractionValue =
-    //   0.3285 + Math.abs(Math.cos(Math.PI * 0.5 * counter * 0.0061245675))
-    // console.log({ fractionValue })
-    material.uniforms.fraction.value = fractionValue
-    if (fractionValue < 0.51) setTimeout(() => setStep1Complete(true), 1000)
-  }, [counter, material.uniforms.fraction, setStep1Complete])
+      if (
+        setStep1Complete &&
+        !hasTriggeredRef.current &&
+        (counter >= maxIndex || fractionValue <= 0.001)
+      ) {
+        hasTriggeredRef.current = true
+        setTimeout(() => setStep1Complete(true), 600)
+      }
+    }
+  }, [counter, material, revealStart, setStep1Complete, total])
+
+  useFrame((_, delta) => {
+    if (material?.uniforms?.time) {
+      material.uniforms.time.value += delta
+    }
+  })
 
   return (
     <mesh
       geometry={geometry}
       material={material}
-      rotation={[Math.PI, 0, -Math.PI * 0.9]}
-      scale={[1.25, 1.25, 1.25]}
+      rotation={rotation}
+      scale={meshTransform.adjustedScale}
+      position={[0, 0, meshTransform.zOffset]}
       visible={true}
-    >
-      {/* <boxGeometry args={[1, 1, 1]} /> */}
-      {/* <meshMatcapMaterial normalMap={normalMap} matcap={matCap} color='red' /> */}
-      {/* <heatScaleMaterial ref={matRef} side={THREE.DoubleSide} /> */}
-      {/* <meshBasicMaterial color='red' /> */}
-      {/* <meshStandardMaterial color='red' /> */}
-    </mesh>
+    />
   )
 }

@@ -1,26 +1,48 @@
 import { useEffect, useState } from 'react'
 
-export default function useYearCounter() {
+export default function useYearCounter({
+  total = 1,
+  intervalMs = 160,
+  loop = false,
+} = {}) {
   const [counter, setCounter] = useState(0)
 
   useEffect(() => {
-    if (counter > 142) return
+    if (total <= 1) {
+      setCounter(0)
+      return undefined
+    }
 
     const timeout = setTimeout(() => {
-      setCounter(counter + 1)
-    }, 100)
-    // time = easeInOutQuad(counter, minTime, maxTime, diff)
+      setCounter((current) => {
+        if (current >= total - 1) {
+          return loop ? 0 : current
+        }
 
-    if (counter > 142) {
-      return () => {
-        clearTimeout(timeout)
-      }
+        return current + 1
+      })
+    }, intervalMs)
+
+    if (!loop && counter >= total - 1) {
+      clearTimeout(timeout)
+      return undefined
     }
 
     return () => {
       clearTimeout(timeout)
     }
-  }, [counter])
+  }, [counter, intervalMs, loop, total])
 
-  return { counter }
+  useEffect(() => {
+    setCounter(0)
+  }, [total])
+
+  return {
+    counter,
+    progress: total > 1 ? counter / (total - 1) : 1,
+    isComplete: total > 1 ? counter >= total - 1 : true,
+    reset() {
+      setCounter(0)
+    },
+  }
 }

@@ -1,9 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-//@ts-ignore
 import vertexShader from '../shaders/videoGoo/vertex.glsl'
-//@ts-ignore
 import fragmentShader from '../shaders/videoGoo/fragment.glsl'
 
 interface VideoPlaneProps {

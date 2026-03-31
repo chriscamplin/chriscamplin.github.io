@@ -1,0 +1,242 @@
+:root {
+  color: #f6f6f2;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, #080808 0%, #000 60%, #050505 100%);
+  font-family: 'Titillium Web', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+.JoyDivisionWavePage {
+  min-height: 100vh;
+  padding: 32px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 24px;
+}
+
+.JoyDivisionWaveHeader {
+  max-width: 720px;
+  display: grid;
+  gap: 10px;
+}
+
+.JoyDivisionWaveHeader h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  line-height: 0.92;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.JoyDivisionWaveHeader p {
+  margin: 0;
+  max-width: 560px;
+  color: rgba(246, 246, 242, 0.76);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.JoyDivisionWaveControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.JoyDivisionWaveForm,
+.JoyDivisionWaveStatusCard {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+}
+
+.JoyDivisionWaveForm {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.JoyDivisionWaveField {
+  display: grid;
+  gap: 8px;
+}
+
+.JoyDivisionWaveField span,
+.JoyDivisionWaveStatusEyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: rgba(246, 246, 242, 0.64);
+}
+
+.JoyDivisionWaveField input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font: inherit;
+}
+
+.JoyDivisionWaveField input::placeholder {
+  color: rgba(246, 246, 242, 0.38);
+}
+
+.JoyDivisionWaveActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.JoyDivisionWaveActions button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: #f6f6f2;
+  color: #040404;
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.JoyDivisionWaveActions button:disabled {
+  opacity: 0.56;
+  cursor: wait;
+}
+
+.JoyDivisionWaveSecondaryButton {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.JoyDivisionWaveHiddenInput {
+  display: none;
+}
+
+.JoyDivisionWaveLink {
+  width: fit-content;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.78rem;
+  color: rgba(246, 246, 242, 0.72);
+}
+
+.JoyDivisionWaveLink:hover {
+  color: #fff;
+}
+
+.JoyDivisionWaveStatusCard {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.JoyDivisionWaveStatusCopy,
+.JoyDivisionWaveHint,
+.JoyDivisionWaveSourceTitle {
+  margin: 0;
+}
+
+.JoyDivisionWaveStatusCopy {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.JoyDivisionWaveStatusCopyidle,
+.JoyDivisionWaveStatusCopyready {
+  color: #f6f6f2;
+}
+
+.JoyDivisionWaveStatusCopyloading {
+  color: #f9d97a;
+}
+
+.JoyDivisionWaveStatusCopyerror {
+  color: #ff9c94;
+}
+
+.JoyDivisionWaveHint {
+  color: rgba(246, 246, 242, 0.64);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.JoyDivisionWaveSourceMeta {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.JoyDivisionWaveSourceTitle {
+  font-size: 1.1rem;
+}
+
+.JoyDivisionWaveMetaLink {
+  width: fit-content;
+  text-decoration: none;
+  font-size: 0.92rem;
+  color: #fff;
+}
+
+.JoyDivisionWaveAudio {
+  width: 100%;
+}
+
+.JoyDivisionWaveCanvasShell {
+  min-height: 60vh;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.06), transparent 40%),
+    #000;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.JoyDivisionWaveCanvasShell canvas {
+  display: block;
+  min-height: 60vh;
+}
+
+@media (max-width: 720px) {
+  .JoyDivisionWavePage {
+    padding: 20px;
+    gap: 18px;
+  }
+
+  .JoyDivisionWaveControls {
+    grid-template-columns: 1fr;
+  }
+
+  .JoyDivisionWaveCanvasShell {
+    min-height: 68vh;
+    border-radius: 18px;
+  }
+}

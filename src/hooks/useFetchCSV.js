@@ -1,44 +1,70 @@
 import { useEffect, useState } from 'react'
-// import { max } from 'd3-array'
-import { parse } from 'papaparse'
 
-const useFetchCSV = (path) => {
+import { parseCsvText } from '../helpers/parseCsv'
+
+const useFetchCSV = (path, options = {}) => {
   const [rows, setRows] = useState([])
 
   useEffect(() => {
-    if (path.includes('undefined') || path.includes(' ')) return
-
-    // if this is too large could stream instead?
-    // https://stackoverflow.com/questions/60413948/reading-large-csv-file-on-a-javascript-frontend-application
-    async function getData() {
-      parse(path, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        transform(value) {
-          return Number.isNaN(Number(value)) ? value : Number(value)
-        },
-        complete(results) {
-          // console.log({ res: results?.data });
-          const calcAv = results?.data.map((row) => {
-            const keys = ['Year', 'D-N', 'DJF', 'J-D', 'JJA']
-            const average =
-              Object.keys(row)
-                .filter((key) => !keys.includes(key))
-                .reduce((acc, curr) => acc + row[curr], 0) / 12
-
-            return {
-              ...row,
-              average,
-            }
-          })
-          console.log({ calcAv })
-          setRows(calcAv)
-        },
-      })
+    if (!path) {
+      setRows([])
+      return
     }
-    getData().catch(console.error)
-  }, [path])
+
+    let cancelled = false
+
+    async function getData() {
+      const response = await fetch(path)
+      const csvText = await response.text()
+      const parsedRows = parseCsvText(csvText, options)
+      const rowsWithAverage = parsedRows.map((row) => {
+        const monthKeys = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ]
+
+        const numericValues = monthKeys
+          .map((month) => row[month])
+          .filter((value) => typeof value === 'number' && !Number.isNaN(value))
+
+        const average =
+          numericValues.length > 0
+            ? numericValues.reduce((sum, value) => sum + value, 0) /
+              numericValues.length
+            : null
+
+        return {
+          ...row,
+          average,
+        }
+      })
+
+      if (!cancelled) {
+        setRows(rowsWithAverage)
+      }
+    }
+
+    getData().catch((error) => {
+      console.error('Failed to fetch CSV data', error)
+      if (!cancelled) {
+        setRows([])
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [options.skipLines, path])
 
   return { rows }
 }

@@ -1,21 +1,33 @@
 import { Text } from '@react-three/drei'
 
-const Months = ({ months, textScale }) =>
-  months.map((month, i) => {
-    const xAngle = Math.sin(i / 2) * 9 * 1.185
-    const yAngle = Math.cos(i / 2) * 9 * 1.185
+const FONT_URL = '/fonts/TitilliumWeb-Bold.ttf'
+const LABEL_RENDER_ORDER = 21
 
-    const x = xAngle
-    const y = yAngle
+const Months = ({
+  months,
+  textScale = 0.45,
+  radius = 11.4,
+  angleOffset = 0,
+}) =>
+  months.map((month, i) => {
+    const angle = angleOffset + (Math.PI * 2 * i) / months.length
+    const x = Math.sin(angle) * radius
+    const y = Math.cos(angle) * radius
 
     return (
-      <group key={Math.random()} rotation={[0, 0, -Math.PI * 0.125]}>
+      <group key={month}>
         <Text
-          font={'/fonts/GT-Zirkon-Bold.woff'}
-          color='white'
-          rotation={[0, 0, Math.PI * 0.125]}
-          scale={[textScale * 1.5, textScale * 1.5, textScale * 1.5]}
+          font={FONT_URL}
+          color='#dbeef4'
+          scale={[textScale, textScale, textScale]}
           position={[x, y, 0]}
+          anchorX='center'
+          anchorY='middle'
+          renderOrder={LABEL_RENDER_ORDER}
+          material-toneMapped={false}
+          material-fog={false}
+          material-depthTest={false}
+          material-depthWrite={false}
         >
           {month}
         </Text>

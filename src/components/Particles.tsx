@@ -35,13 +35,19 @@ export function Particles() {
   const { scroll } = useScrollbar()
   useEffect(() => {
     async function getPoints() {
-      const { particles, gpgpu } = await generateFboPoints(gl)
+      const generatedPoints = await generateFboPoints(gl)
+
+      if (!generatedPoints) {
+        return
+      }
+
+      const { particles, gpgpu } = generatedPoints
       setParticlesData(particles)
       setGpgpuData(gpgpu)
     }
 
     getPoints()
-  }, [])
+  }, [gl])
   const light = React.useRef<THREE.DirectionalLight>(null)
   const mousePosition = useRef({ x: 0.5, y: 0.5 })
 

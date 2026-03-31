@@ -56,6 +56,6 @@ export const siteData = [
   {
     name: 'Nasa - 3D Data visualisations',
     imgPath: '/img/site_preview_nasa_01_opt.jpg',
-    url: '#',
+    url: '/nasa.html',
   },
 ]
